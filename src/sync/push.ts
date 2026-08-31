@@ -76,17 +76,20 @@ export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOut
 
   // 完備確認が欠落を見つけたら、beginで不足を取り直して送り直す。取り直しても
   // 埋まらない場合はそこで諦める（同じ往復を繰り返さない）
+  let finalized: boolean;
   try {
-    await finalize(deps, begin, input.manifestHash);
+    finalized = await finalize(deps, begin, input.manifestHash);
   } catch (error) {
     if (!(error instanceof NekoteApiError) || error.code !== "blobs_incomplete") throw error;
     // 同じmanifestのbeginは処理中のPushへ合流するが、期限切れなら**新しいPush世代**に
     // なる。pushIdの記録と`confirm`もやり直さないと、確認前のuploadとして拒否される
     begin = await deps.client.beginPush(input.manifest);
     deps.onPushStarted(begin.pushId);
+    if (deps.signal.aborted) return { status: "cancelled" };
     if (!(await stageBlobs(deps, begin))) return { status: "cancelled" };
-    await finalize(deps, begin, input.manifestHash);
+    finalized = await finalize(deps, begin, input.manifestHash);
   }
+  if (!finalized) return { status: "cancelled" };
 
   return pollUntilApplied(deps, begin.pushId);
 }
@@ -151,13 +154,15 @@ async function uploadOne(deps: PushDeps, pushId: string, blob: MissingBlob): Pro
   }
 }
 
+/** `true`なら完備確認が終わりenqueued。`false`なら利用者が中断した */
 async function finalize(
   deps: PushDeps,
   begin: PushBeginResponse,
   manifestHash: string,
-): Promise<void> {
+): Promise<boolean> {
   let retries = 0;
   for (;;) {
+    if (deps.signal.aborted) return false;
     deps.report({ phase: "finalize", message: "送信内容を確認しています…" });
 
     let response;
@@ -175,13 +180,14 @@ async function finalize(
         retries < FINALIZE_RETRY_LIMIT
       ) {
         retries += 1;
-        await deps.sleep((error.retryAfterSeconds ?? 0) * 1000 || FINALIZE_RETRY_INTERVAL_MS);
+        const waitMs = (error.retryAfterSeconds ?? 0) * 1000 || FINALIZE_RETRY_INTERVAL_MS;
+        if (!(await sleepUnlessAborted(deps, waitMs))) return false;
         continue;
       }
       throw error;
     }
 
-    if (response.state === "enqueued") return;
+    if (response.state === "enqueued") return true;
 
     deps.report({
       phase: "finalize",
@@ -189,12 +195,14 @@ async function finalize(
       done: response.verification.verifiedEntryCount,
       total: response.verification.entryCount,
     });
-    await deps.sleep(response.verification.retryAfter * 1000);
+    if (!(await sleepUnlessAborted(deps, response.verification.retryAfter * 1000))) return false;
   }
 }
 
 /** 変換・公開が終わるまでstatusを見る。上限まで待っても終わらなければ「処理中」で返す */
 async function pollUntilApplied(deps: PushDeps, pushId: string): Promise<PushOutcome> {
+  if (deps.signal.aborted) return { status: "cancelled" };
+
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let interval = POLL_MIN_INTERVAL_MS;
   let result = await deps.client.getPushStatus(pushId);
@@ -207,12 +215,19 @@ async function pollUntilApplied(deps: PushDeps, pushId: string): Promise<PushOut
       return { status: "failed", result };
     }
     if (Date.now() >= deadline) return { status: "applying", result };
+    if (deps.signal.aborted) return { status: "cancelled" };
 
     deps.report({ phase: "apply", message: "Nekote Blogで反映しています…" });
-    await deps.sleep(interval);
+    if (!(await sleepUnlessAborted(deps, interval))) return { status: "cancelled" };
     interval = Math.min(POLL_MAX_INTERVAL_MS, Math.round(interval * 1.5));
     result = await deps.client.getPushStatus(pushId);
   }
+}
+
+/** 待ったあとに中断されていれば`false` */
+async function sleepUnlessAborted(deps: PushDeps, milliseconds: number): Promise<boolean> {
+  await deps.sleep(milliseconds);
+  return !deps.signal.aborted;
 }
 
 /** 中断した反映の続きを見る。終端していれば結果を、まだ動いていれば`applying`を返す */

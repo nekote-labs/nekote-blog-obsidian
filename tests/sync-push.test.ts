@@ -123,6 +123,8 @@ interface HarnessOptions {
   signal?: AbortSignal;
   /** upload 1件ごとに呼ぶhook（送信の途中で中断させるのに使う） */
   onUpload?: (sha256: string) => void;
+  /** sleepの直前に呼ぶhook（待機中の中断を再現する） */
+  onSleep?: () => void;
   /** sleep 1回で進める仮想時間（ミリ秒）。既定は要求された時間そのもの */
   advanceMsPerSleep?: number;
 }
@@ -209,6 +211,7 @@ function createHarness(options: HarnessOptions = {}): Harness {
     report: (value) => progress.push(value),
     sleep: async (milliseconds) => {
       sleeps.push(milliseconds);
+      options.onSleep?.();
       clock.now += options.advanceMsPerSleep ?? milliseconds;
     },
     onPushStarted: (pushId) => {
@@ -449,6 +452,22 @@ describe("runPush: finalize", () => {
     expect(harness.sleeps).toEqual([10_000, 10_000, 10_000, 10_000, 10_000]);
     expect(harness.calls.filter((call) => call === `finalizePush:${PUSH_ID}`)).toHaveLength(6);
   });
+
+  it("完備確認の待機中にabortされるとcancelledになり、再送しない", async () => {
+    const controller = new AbortController();
+    const harness = createHarness({
+      begin: [beginResponse()],
+      finalize: [verifying(30), enqueued()],
+      signal: controller.signal,
+      onSleep: () => controller.abort(),
+    });
+
+    const outcome = await runPush(harness.deps, pushInput());
+
+    expect(outcome).toEqual({ status: "cancelled" });
+    expect(harness.calls.filter((call) => call === `finalizePush:${PUSH_ID}`)).toHaveLength(1);
+    expect(harness.calls).not.toContain(`getPushStatus:${PUSH_ID}`);
+  });
 });
 
 describe("runPush: 適用の待ち", () => {
@@ -494,6 +513,22 @@ describe("runPush: 適用の待ち", () => {
 
     expect(outcome).toMatchObject({ status: "applying" });
     expect(harness.sleeps).toEqual([3000]);
+  });
+
+  it("status待機中にabortされるとcancelledになり、pollを止める", async () => {
+    const controller = new AbortController();
+    const harness = createHarness({
+      begin: [beginResponse()],
+      finalize: [enqueued()],
+      status: [statusResponse("transforming"), statusResponse("succeeded")],
+      signal: controller.signal,
+      onSleep: () => controller.abort(),
+    });
+
+    const outcome = await runPush(harness.deps, pushInput());
+
+    expect(outcome).toEqual({ status: "cancelled" });
+    expect(harness.calls.filter((call) => call === `getPushStatus:${PUSH_ID}`)).toHaveLength(1);
   });
 });
 

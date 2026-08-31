@@ -106,6 +106,28 @@ describe("collectReferences(): 拾う記法", () => {
     expect(result.linkedArticlePaths).toEqual(["posts/other.md"]);
   });
 
+  it("引用符なしのHTML属性も拾う", () => {
+    const { run } = setup({ files: ["blog/posts/img/cat.png"] });
+
+    expect(run("<img src=./img/cat.png>").assetPaths).toEqual(["blog/posts/img/cat.png"]);
+  });
+
+  it("`::audio`と`::file`のurlを拾う", () => {
+    const { run } = setup({ files: ["blog/posts/voice.m4a", "blog/posts/manual.pdf"] });
+
+    const body = ['::audio{url="./voice.m4a"}', '::file{url="./manual.pdf"}'].join("\n");
+
+    expect(run(body).assetPaths).toEqual(["blog/posts/voice.m4a", "blog/posts/manual.pdf"]);
+  });
+
+  it("行をまたぐMarkdownリンクのdestを拾う", () => {
+    const { run } = setup({ files: ["blog/posts/img/cat.png"] });
+
+    const body = ["![猫](", "./img/cat.png)"].join("\n");
+
+    expect(run(body).assetPaths).toEqual(["blog/posts/img/cat.png"]);
+  });
+
   it("外部URL・フラグメント・絶対pathは収集しない", () => {
     const { run, issues } = setup();
 

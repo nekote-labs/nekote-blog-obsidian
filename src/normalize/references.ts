@@ -5,12 +5,12 @@
 // 倒す（余分に拾っても、実在しなければ指摘が1件出るだけで公開は止まらない）。
 //
 // 入力はObsidian記法の正規化後で`[[…]]`は残っていないため、見るのは標準Markdownの
-// インラインリンク・参照定義と、利用者が直接書いた限定HTMLの`src`・`href`だけ。
+// インラインリンク・参照定義、限定HTMLの`src`・`href`、leaf directiveの`url`。
 //
 // Markdownを正規表現で近似的に読むので、次は取りこぼす: 2段以上入れ子になった括弧を含む
-// dest、バックスラッシュエスケープ、行をまたぐリンク・参照定義（タイトルだけ次の行にある形を
-// 含む）、4スペースのインデントコードブロック（`segments.ts`と同じ割り切り）。逆に`](…)`は
-// ラベル側の括弧の対応を見ずに拾うので、リンクでない文章を参照と読むことがある。
+// dest、バックスラッシュエスケープ、4スペースのインデントコードブロック（`segments.ts`と
+// 同じ割り切り）。逆に`](…)`はラベル側の括弧の対応を見ずに拾うので、リンクでない文章を
+// 参照と読むことがある。
 import type { IssueCollector } from "../content/issues";
 import {
   directoryOf,
@@ -21,7 +21,7 @@ import {
 } from "../vault/paths";
 import { classifyAssetPath, isMarkdownPath, isTransferableAsset } from "./assets";
 import type { NormalizeContext } from "./context";
-import { replaceOutsideCode, splitBodyLines } from "./segments";
+import { joinBodyLines, replaceOutsideCode, splitBodyLines } from "./segments";
 import { classifyReferenceUrl, decodeReferencePath } from "./url";
 
 export interface CollectedReferences {
@@ -39,10 +39,18 @@ const TITLE = "(?:\\s+(?:\"[^\"]*\"|'[^']*'|\\([^()]*\\)))?";
 
 const INLINE_DESTINATION = new RegExp(`\\]\\(\\s*${DESTINATION}${TITLE}\\s*\\)`, "g");
 
-const REFERENCE_DEFINITION = new RegExp(`^ {0,3}\\[[^\\]]*\\]:\\s*${DESTINATION}${TITLE}\\s*$`);
+const REFERENCE_DEFINITION = new RegExp(
+  `^ {0,3}\\[[^\\]]*\\]:\\s*${DESTINATION}${TITLE}\\s*$`,
+  "gm",
+);
 
-/** 直前の1文字も見て、`data-src`のような別の属性を拾わないようにする */
-const HTML_ATTRIBUTE = /(?:^|[\s"'])(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+/** 直前の1文字も見て、`data-src`のような別の属性を拾わない。引用符なしの値もHTMLとして有効 */
+const HTML_ATTRIBUTE =
+  /(?:^|[\s"'])(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
+
+/** サーバーがHASTから集める leaf directive。`url`だけがアセット参照 */
+const DIRECTIVE_URL =
+  /::(?:audio|file)(?:\[[^\]]*\])?\{[^}]*?\burl\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
 
 /**
  * 「コードの外」を示す目印。コードの中身にも空白はあり得るが、その位置は潰しても
@@ -68,28 +76,25 @@ export function collectReferences(
   const assetPaths = new Set<string>();
   const linkedArticlePaths = new Set<string>();
 
-  for (const line of splitBodyLines(body)) {
-    if (line.fenced) continue;
+  // フェンスとインラインコードを潰した本文で探す。行をまたぐ `](\n dest)` も拾う
+  for (const found of findDestinations(maskCode(body))) {
+    if (seen.has(found.text)) continue;
+    seen.add(found.text);
 
-    for (const found of findDestinations(maskInlineCode(line.text))) {
-      if (seen.has(found.text)) continue;
-      seen.add(found.text);
+    const target = readDestination(found.text);
+    if (target === null) continue;
 
-      const target = readDestination(found.text);
-      if (target === null) continue;
-
-      const vaultPath = resolveRelativePath(baseDirectory, target);
-      if (vaultPath === null) {
-        issues.warning(`vaultの外を指す参照は取り込めません: ${found.text}`);
-        continue;
-      }
-
-      if (isMarkdownPath(vaultPath)) {
-        collectArticleLink(vaultPath, context, linkedArticlePaths);
-        continue;
-      }
-      collectAsset(vaultPath, context, issues, assetPaths);
+    const vaultPath = resolveRelativePath(baseDirectory, target);
+    if (vaultPath === null) {
+      issues.warning(`vaultの外を指す参照は取り込めません: ${found.text}`);
+      continue;
     }
+
+    if (isMarkdownPath(vaultPath)) {
+      collectArticleLink(vaultPath, context, linkedArticlePaths);
+      continue;
+    }
+    collectAsset(vaultPath, context, issues, assetPaths);
   }
 
   return { assetPaths: [...assetPaths], linkedArticlePaths: [...linkedArticlePaths] };
@@ -112,17 +117,34 @@ function maskInlineCode(line: string): string {
     .join("");
 }
 
-/** 1行に含まれるdestを出現順に */
-function findDestinations(line: string): FoundDestination[] {
+/** フェンスとインラインコードを同じ長さの空白へ潰す（出現位置を保つ） */
+function maskCode(body: string): string {
+  return joinBodyLines(
+    splitBodyLines(body).map((line) =>
+      line.fenced ? OUTSIDE_CODE_MARK.repeat(line.text.length) : maskInlineCode(line.text),
+    ),
+  );
+}
+
+function quotedOrBare(match: RegExpMatchArray): string {
+  return match[1] ?? match[2] ?? match[3] ?? "";
+}
+
+/** コードを潰した本文に含まれるdestを出現順に */
+function findDestinations(masked: string): FoundDestination[] {
   const found: FoundDestination[] = [];
 
-  for (const match of line.matchAll(INLINE_DESTINATION)) {
+  for (const match of masked.matchAll(INLINE_DESTINATION)) {
     found.push({ index: match.index, text: match[1] ?? "" });
   }
-  const definition = REFERENCE_DEFINITION.exec(line);
-  if (definition !== null) found.push({ index: 0, text: definition[1] ?? "" });
-  for (const match of line.matchAll(HTML_ATTRIBUTE)) {
-    found.push({ index: match.index, text: match[1] ?? match[2] ?? "" });
+  for (const match of masked.matchAll(REFERENCE_DEFINITION)) {
+    found.push({ index: match.index, text: match[1] ?? "" });
+  }
+  for (const match of masked.matchAll(HTML_ATTRIBUTE)) {
+    found.push({ index: match.index, text: quotedOrBare(match) });
+  }
+  for (const match of masked.matchAll(DIRECTIVE_URL)) {
+    found.push({ index: match.index, text: quotedOrBare(match) });
   }
 
   return found.sort((left, right) => left.index - right.index);
