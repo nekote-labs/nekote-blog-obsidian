@@ -30,6 +30,12 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       return;
     }
 
+    // 認可開始直後。user codeが来るまで接続ボタンを出さない
+    if (this.authorizationController !== null) {
+      this.renderAuthorizationStarting(containerEl);
+      return;
+    }
+
     if (this.plugin.connection.isConnected()) {
       this.renderConnected(containerEl);
     } else {
@@ -77,6 +83,24 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
             void this.startAuthorization();
           }),
       );
+  }
+
+  // --- 認可開始直後 -----------------------------------------------------------
+
+  private renderAuthorizationStarting(container: HTMLElement): void {
+    new Setting(container).setName("承認を待っています").setHeading();
+
+    container.createEl("p", {
+      cls: "nekote-blog-description",
+      text: "接続を開始しています…",
+    });
+
+    new Setting(container).addButton((button) =>
+      button.setButtonText("中止").onClick(() => {
+        this.cancelAuthorization();
+        this.display();
+      }),
+    );
   }
 
   // --- 承認待ち -------------------------------------------------------------
@@ -177,9 +201,13 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 操作 -----------------------------------------------------------------
 
   private async startAuthorization(): Promise<void> {
+    // 進行中なら重ねて開始しない（連打で古いpollが残るのを防ぐ）
+    if (this.authorizationController !== null) return;
+
     const deviceName = this.deviceName.trim() || this.plugin.defaultDeviceName();
     const controller = new AbortController();
     this.authorizationController = controller;
+    this.display(); // 接続ボタンを消して開始中表示にする
 
     try {
       const result = await this.plugin.connection.connect({
