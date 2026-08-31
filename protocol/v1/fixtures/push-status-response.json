@@ -1,0 +1,15 @@
+{
+  "pushId": "018f2c34-5a6b-7c8d-9e0f-1a2b3c4d5e6f",
+  "state": "verifying",
+  "baseRevision": 12,
+  "targetRevision": null,
+  "appliedRevision": 12,
+  "manifestHash": "5d41402abc4b2a76b9719d911017c592a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "verification": {
+    "cursor": 500,
+    "verifiedEntryCount": 500,
+    "entryCount": 1200,
+    "retryAfter": 30
+  },
+  "expiresAt": "2026-09-01T00:00:00.000Z"
+}

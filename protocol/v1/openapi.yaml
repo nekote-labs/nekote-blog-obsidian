@@ -1,0 +1,961 @@
+# Obsidian Push同期API v1の機械可読な正本。
+#
+# 仕様の正本はdocs/spec/obsidian.md、数値の正本はdocs/spec/limits.md。
+# 公開プラグイン（nekote-labs/nekote-blog-obsidian）はこのファイルと
+# fixtures/をprotocol/v1/へコピーしてcommitし、runtimeでこのリポジトリへ依存しない。
+# 内容を変えたら`nr gen:obsidian-protocol-hash`でprotocol.jsonのhashを更新する。
+#
+# 実装状況: 端末認可（/device-authorizations）・接続情報（/connection）・Push世代の
+# staging（/pushes系と/manifest）はサーバー実装済み。変換・公開の適用経路は未実装で、
+# `finalize`が受理したPushはQueueへ積まれたところまで進む（進捗は.plan/overview.md）。
+openapi: 3.1.0
+info:
+  title: Nekote Blog Obsidian Push API
+  version: "1.0.0"
+  x-protocol-version: 1
+  description: |
+    ObsidianプラグインがvaultのMarkdownと参照アセットをPushして公開するAPI。
+    protocolVersionはmajorだけを持ち、未対応majorは426で拒否する。
+servers:
+  - url: https://api.nekote.blog/v1/obsidian
+    description: 本番
+  - url: https://staging-api.nekote.blog/v1/obsidian
+    description: staging
+
+tags:
+  - name: device-authorization
+    description: 端末認可（未認証。厳しくrate limitする）
+  - name: connection
+    description: 接続情報と端末credential
+  - name: push
+    description: Push世代のライフサイクル
+
+paths:
+  /device-authorizations:
+    post:
+      tags: [device-authorization]
+      summary: 端末認可を開始する
+      description: |
+        device code・user code・承認ページのURLを返す。サーバーが保存するのは
+        それぞれのsha256とPKCE相当のchallengeだけ。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceAuthorizationRequest"
+      responses:
+        "201":
+          description: 認可を開始した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthorizationResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "415":
+          $ref: "#/components/responses/Error"
+        "426":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /device-authorizations/token:
+    post:
+      tags: [device-authorization]
+      summary: 承認状態をpollし、承認済みならトークンを受け取る
+      description: |
+        未承認・拒否・期限切れは**エラーではなく200のstatus**で返す。存在しない
+        device codeも`expired`にして、総当たりに手掛かりを与えない。
+        トークンはこの応答でだけ返り、サーバーはsha256しか保存しない。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceTokenRequest"
+      responses:
+        "200":
+          description: 現在の承認状態（承認済みならトークン付き）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceTokenResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "415":
+          $ref: "#/components/responses/Error"
+        "426":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /connection:
+    get:
+      tags: [connection]
+      summary: 接続情報を取得する
+      description: |
+        対象ブログ・source状態・現在revision・現在manifest hash・確定済みvault IDと
+        コンテンツルートを返す。プラグインはローカル保存値と比べ、違えば競合状態として
+        利用者の確認を待つ。
+      responses:
+        "200":
+          description: 接続情報
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /connection/device:
+    delete:
+      tags: [connection]
+      summary: 現在の端末credentialを自分で失効させる
+      description: |
+        失効しても公開中の記事は変わらない。既に失効済みでも204（冪等）。
+      responses:
+        "204":
+          description: 失効した
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /pushes:
+    post:
+      tags: [push]
+      summary: begin（manifestだけを検証してPush世代を開始する）
+      description: |
+        **Markdown本文とアセットはこの経路では受け取らない。** 同じbaseRevision・
+        同じmanifest hashのbeginは冪等で、処理中のPushがあればそれへ合流する
+        （このとき201ではなく200を返す）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncManifest"
+      responses:
+        "200":
+          description: 処理中のPushへ合流した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushBeginResponse"
+        "201":
+          description: Push世代を開始した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushBeginResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "415":
+          $ref: "#/components/responses/Error"
+        "426":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /pushes/{pushId}/confirm:
+    post:
+      tags: [push]
+      summary: 表示済みpreflightを確定してblob uploadを許可する
+      description: |
+        confirmを通るまでblob uploadは`not_confirmed`（409）で拒否される。
+        同時に不足原本の件数とbytesを短時間予約し、上限のすり抜けを防ぐ。
+        確定済みのPushへの再送は冪等成功。
+      parameters:
+        - $ref: "#/components/parameters/PushId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushConfirmRequest"
+      responses:
+        "200":
+          description: 確定した（予約量と期限を返す）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushConfirmResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /pushes/{pushId}/blobs/{sha256}:
+    put:
+      tags: [push]
+      summary: Markdownまたはアセットを1件stageする
+      description: |
+        bodyは原本のバイト列そのもの。**Content-Typeも拡張子も見ず、実バイトから
+        sha256・サイズ・形式を再確認する。** manifestで宣言していないsha256は
+        受け付けない。同じ内容の再送は同じ`blobGen`への冪等putになる。
+      parameters:
+        - $ref: "#/components/parameters/PushId"
+        - name: sha256
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-f]{64}$"
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: 受理したサイズ・hash・blobGen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlobUploadResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /pushes/{pushId}/finalize:
+    post:
+      tags: [push]
+      summary: 宣言blobの完備を確認し、Queueへ投入する
+      description: |
+        完備確認は1リクエストあたりの件数で区切られる。残りがあるあいだは202を
+        返し、`retryAfter`のあとに同じpushIdで再送すると保存済みカーソルから
+        再開する。欠落があれば`blobs_incomplete`（400）で不足sha256のsampleを返す。
+      parameters:
+        - $ref: "#/components/parameters/PushId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushFinalizeRequest"
+      responses:
+        "200":
+          description: 受理してQueueへ投入した
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushFinalizeAcceptedResponse"
+        "202":
+          description: 完備確認を継続中
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushFinalizeVerifyingResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /pushes/{pushId}:
+    get:
+      tags: [push]
+      summary: 完備確認・変換・公開状況をpollする
+      description: |
+        **本文・トークン・ローカル絶対pathは返さない。** 記事エラーは
+        コンテンツルート相対pathと件数・代表sampleだけ。
+      parameters:
+        - $ref: "#/components/parameters/PushId"
+      responses:
+        "200":
+          description: 現在の状態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushStatusResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /manifest:
+    get:
+      tags: [push]
+      summary: 現在の適用済み集合を取得する（409時の比較用）
+      description: |
+        まだ初回同期が終わっていないブログでは空集合（`appliedRevision: 0`）を返す。
+      responses:
+        "200":
+          description: revisionとpath/hash集合
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppliedManifestResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+components:
+  securitySchemes:
+    deviceToken:
+      type: http
+      scheme: bearer
+      description: |
+        端末認可で発行したopaque token。**ダッシュボードのCookieセッションは
+        Push APIの認証に使わない。**
+
+  parameters:
+    PushId:
+      name: pushId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: エラー
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              $ref: "#/components/schemas/ErrorCode"
+            message:
+              type: string
+              description: 日本語の利用者向け文言（秘密・他ブログの情報は含めない）
+            details:
+              type: object
+              additionalProperties: true
+
+    # docs/spec/obsidian.md「エラー形式とエラーコード」と1対1で対応する。
+    # x-http-statusはコードごとの既定status。HTTPのメソッド不一致（405）と
+    # Content-Type不一致（415）だけは対応するcodeが無く、`invalid_request`を
+    # statusだけ上書きして返す
+    ErrorCode:
+      type: string
+      enum:
+        - invalid_request
+        - invalid_manifest
+        - hash_mismatch
+        - size_mismatch
+        - unsupported_asset_format
+        - blobs_incomplete
+        - unauthorized
+        - blog_forbidden
+        - vault_in_use
+        - push_not_found
+        - revision_conflict
+        - push_in_progress
+        - sync_run_active
+        - source_switch_pending
+        - blog_deleting
+        - not_confirmed
+        - manifest_too_large
+        - payload_too_large
+        - push_quota_exceeded
+        - protocol_version_unsupported
+        - rate_limited
+        - daily_quota_exceeded
+        - internal_error
+      x-http-status:
+        invalid_request: 400
+        invalid_manifest: 400
+        hash_mismatch: 400
+        size_mismatch: 400
+        unsupported_asset_format: 400
+        blobs_incomplete: 400
+        unauthorized: 401
+        blog_forbidden: 403
+        vault_in_use: 403
+        push_not_found: 404
+        revision_conflict: 409
+        push_in_progress: 409
+        sync_run_active: 409
+        source_switch_pending: 409
+        blog_deleting: 409
+        not_confirmed: 409
+        manifest_too_large: 413
+        payload_too_large: 413
+        push_quota_exceeded: 413
+        protocol_version_unsupported: 426
+        rate_limited: 429
+        daily_quota_exceeded: 429
+        internal_error: 500
+
+    ProtocolVersion:
+      type: integer
+      const: 1
+      description: protocol major。未対応majorは426（protocol_version_unsupported）
+
+    DeviceAuthorizationRequest:
+      type: object
+      required: [protocolVersion, deviceName, codeChallenge, codeChallengeMethod]
+      additionalProperties: false
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        deviceName:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 承認画面と端末一覧に出す端末名（秘密ではない）
+        codeChallenge:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
+          description: code verifierのsha256をbase64url（パディングなし）にした値
+        codeChallengeMethod:
+          type: string
+          const: S256
+
+    DeviceAuthorizationResponse:
+      type: object
+      required:
+        - deviceCode
+        - userCode
+        - verificationUri
+        - verificationUriComplete
+        - expiresIn
+        - interval
+      properties:
+        deviceCode:
+          type: string
+          description: pollに使う256bitのコード（base64url）
+        userCode:
+          type: string
+          pattern: "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$"
+          description: 利用者が確認する8文字のCrockford Base32（表示形）
+        verificationUri:
+          type: string
+          format: uri
+        verificationUriComplete:
+          type: string
+          format: uri
+        expiresIn:
+          type: integer
+          description: 有効期限（秒）
+        interval:
+          type: integer
+          description: pollの推奨間隔（秒）
+
+    DeviceTokenRequest:
+      type: object
+      required: [protocolVersion, deviceCode, codeVerifier]
+      additionalProperties: false
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        deviceCode:
+          type: string
+        codeVerifier:
+          type: string
+          pattern: "^[A-Za-z0-9\\-._~]{43,128}$"
+
+    DeviceTokenResponse:
+      oneOf:
+        - type: object
+          required: [status, interval]
+          properties:
+            status:
+              type: string
+              enum: [pending, slow_down]
+            interval:
+              type: integer
+        - type: object
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [denied, expired]
+        - type: object
+          required: [status, token, blog, device]
+          properties:
+            status:
+              type: string
+              const: approved
+            token:
+              type: string
+              description: 端末トークン。**この応答でだけ返る**
+            blog:
+              $ref: "#/components/schemas/ConnectionBlog"
+            device:
+              $ref: "#/components/schemas/ConnectionDevice"
+
+    ConnectionBlog:
+      type: object
+      required: [id, title, subdomain]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        subdomain:
+          type: string
+
+    ConnectionDevice:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    ConnectionSource:
+      oneOf:
+        - type: object
+          required: [kind]
+          properties:
+            kind:
+              type: string
+              const: none
+        - type: object
+          required: [kind, type]
+          properties:
+            kind:
+              type: string
+              const: other
+            type:
+              type: string
+              enum: [notion, github]
+        - type: object
+          required:
+            - kind
+            - contentSourceId
+            - vaultId
+            - contentRoot
+            - appliedRevision
+            - manifestHash
+          properties:
+            kind:
+              type: string
+              const: obsidian
+            contentSourceId:
+              type: string
+            vaultId:
+              type: string
+              pattern: "^[A-Za-z0-9_-]{8,64}$"
+            contentRoot:
+              type: string
+              description: vaultルート相対の正規化済みpath（vaultルートは空文字）
+            appliedRevision:
+              type: integer
+              minimum: 0
+            manifestHash:
+              type: [string, "null"]
+
+    ConnectionResponse:
+      type: object
+      required: [protocolVersion, blog, device, source]
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        blog:
+          $ref: "#/components/schemas/ConnectionBlog"
+        device:
+          $ref: "#/components/schemas/ConnectionDevice"
+        source:
+          $ref: "#/components/schemas/ConnectionSource"
+
+    # 同期manifest（beginのリクエストボディ）。
+    # entryは**path昇順**（UTF-16コード単位順）に並べ、重複と大文字小文字だけが
+    # 異なるpathの共存を禁じる。manifest hashはコンテンツルートとpath順のentryを
+    # canonicalizeしたJSONのsha256（protocolVersion・vaultId・baseRevisionは含めない）
+    SyncManifest:
+      type: object
+      required: [protocolVersion, vaultId, contentRoot, baseRevision, entries]
+      additionalProperties: false
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        vaultId:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{8,64}$"
+        contentRoot:
+          type: string
+        baseRevision:
+          type: integer
+          minimum: 0
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncManifestEntry"
+
+    PushState:
+      type: string
+      description: Push世代の段階（サーバーのD1と同じ語彙）
+      enum:
+        - preflight
+        - confirmed
+        - verifying
+        - verified
+        - enqueue_pending
+        - enqueued
+        - transforming
+        - committed
+        - published
+        - succeeded
+        - failed
+        - expired
+
+    ConfirmationReason:
+      type: string
+      description: 追加確認を求める理由（hard capではない）
+      enum:
+        - initial_connect
+        - source_switch
+        - content_root_changed
+        - large_delete
+        - large_change
+        - large_upload
+
+    PushPreflight:
+      type: object
+      required:
+        - addedCount
+        - updatedCount
+        - deletedCount
+        - unchangedCount
+        - missingBlobCount
+        - missingBlobBytes
+        - initialConnect
+        - confirmationReasons
+      properties:
+        addedCount:
+          type: integer
+          description: 記事（Markdown entry）単位の差分。アセットの増減は不足blobに出る
+        updatedCount:
+          type: integer
+        deletedCount:
+          type: integer
+        unchangedCount:
+          type: integer
+        missingBlobCount:
+          type: integer
+        missingBlobBytes:
+          type: integer
+        initialConnect:
+          type: boolean
+        confirmationReasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfirmationReason"
+
+    MissingBlob:
+      type: object
+      required: [sha256, kind, bytes]
+      properties:
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        kind:
+          type: string
+          enum: [markdown, asset]
+        bytes:
+          type: integer
+
+    PushBeginResponse:
+      type: object
+      required:
+        - protocolVersion
+        - pushId
+        - state
+        - baseRevision
+        - appliedRevision
+        - manifestHash
+        - preflight
+        - missingBlobs
+        - confirmationRequired
+        - expiresAt
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        pushId:
+          type: string
+        state:
+          $ref: "#/components/schemas/PushState"
+        baseRevision:
+          type: integer
+          minimum: 0
+        appliedRevision:
+          type: integer
+          minimum: 0
+        manifestHash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        preflight:
+          $ref: "#/components/schemas/PushPreflight"
+        missingBlobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/MissingBlob"
+        confirmationRequired:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+
+    PushConfirmRequest:
+      type: object
+      required: [protocolVersion, manifestHash]
+      additionalProperties: false
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        manifestHash:
+          type: string
+          description: beginが返したhash。表示した内容と確定対象の取り違えを防ぐ
+          pattern: "^[0-9a-f]{64}$"
+
+    PushConfirmResponse:
+      type: object
+      required: [pushId, state, reservedBlobCount, reservedBlobBytes, expiresAt]
+      properties:
+        pushId:
+          type: string
+        state:
+          $ref: "#/components/schemas/PushState"
+        reservedBlobCount:
+          type: integer
+        reservedBlobBytes:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    BlobUploadResponse:
+      type: object
+      required: [sha256, bytes, blobGen, state]
+      properties:
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        bytes:
+          type: integer
+        blobGen:
+          type: integer
+          minimum: 1
+          description: サーバーが管理する原本の世代番号（クライアントは指定しない）
+        state:
+          type: string
+          const: live
+
+    PushFinalizeRequest:
+      type: object
+      required: [protocolVersion, manifestHash, baseRevision]
+      additionalProperties: false
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        manifestHash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        baseRevision:
+          type: integer
+          minimum: 0
+
+    VerificationProgress:
+      type: object
+      required: [cursor, verifiedEntryCount, entryCount, retryAfter]
+      properties:
+        cursor:
+          type: integer
+        verifiedEntryCount:
+          type: integer
+        entryCount:
+          type: integer
+        retryAfter:
+          type: integer
+          description: 次の問い合わせまでの推奨待ち時間（秒）
+
+    PushFinalizeAcceptedResponse:
+      type: object
+      required: [pushId, state, jobId, targetRevision]
+      properties:
+        pushId:
+          type: string
+        state:
+          type: string
+          const: enqueued
+        jobId:
+          type: string
+          description: Push用の同期Run（`sync_blog` job）のID
+        targetRevision:
+          type: integer
+
+    PushFinalizeVerifyingResponse:
+      type: object
+      required: [pushId, state, verification]
+      properties:
+        pushId:
+          type: string
+        state:
+          type: string
+          const: verifying
+        verification:
+          $ref: "#/components/schemas/VerificationProgress"
+
+    PushStatusResponse:
+      type: object
+      required:
+        - pushId
+        - state
+        - baseRevision
+        - targetRevision
+        - appliedRevision
+        - manifestHash
+        - expiresAt
+      properties:
+        pushId:
+          type: string
+        state:
+          $ref: "#/components/schemas/PushState"
+        baseRevision:
+          type: integer
+        targetRevision:
+          type: [integer, "null"]
+        appliedRevision:
+          type: integer
+        manifestHash:
+          type: string
+        verification:
+          $ref: "#/components/schemas/VerificationProgress"
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        samples:
+          type: array
+          description: 代表エラー・警告（**本文・絶対pathは含めない**）
+          items:
+            type: object
+            required: [kind, message]
+            properties:
+              kind:
+                type: string
+                enum: [error, warning]
+              path:
+                type: string
+                description: コンテンツルート相対path
+              message:
+                type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    AppliedManifestResponse:
+      type: object
+      required:
+        - protocolVersion
+        - appliedRevision
+        - manifestHash
+        - contentRoot
+        - entries
+      properties:
+        protocolVersion:
+          $ref: "#/components/schemas/ProtocolVersion"
+        appliedRevision:
+          type: integer
+          minimum: 0
+        manifestHash:
+          type: [string, "null"]
+        contentRoot:
+          type: [string, "null"]
+        entries:
+          type: array
+          items:
+            type: object
+            required: [path, sha256, state]
+            properties:
+              path:
+                type: string
+              sha256:
+                type: string
+                pattern: "^[0-9a-f]{64}$"
+              state:
+                type: string
+                enum: [published, unpublished]
+
+    SyncManifestEntry:
+      type: object
+      required: [path, kind, sha256, bytes]
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: |
+            Markdownはコンテンツルート相対（posts/… ・ pages/…）、アセットは
+            vaultルート相対。`/`区切り・Unicode NFC・絶対path/`.`/`..`/空segment禁止。
+        kind:
+          type: string
+          enum: [markdown, asset]
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        bytes:
+          type: integer
+          minimum: 0
+        assetPaths:
+          type: array
+          description: Markdownだけが持つ、本文とfrontmatterから解決した参照アセット
+          items:
+            type: string
+        linkedArticlePaths:
+          type: array
+          description: Markdownだけが持つ、公開対象への相対記事リンク
+          items:
+            type: string
+
+security:
+  - deviceToken: []

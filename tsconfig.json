@@ -1,0 +1,22 @@
+{
+  // プラグイン本体。Node/Electronの型を**入れない**ことで、`process`や`Buffer`等の
+  // 参照がモバイルへ出荷される前にtypecheckで落ちる（lintのimport禁止と二重で守る）
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src"]
+}

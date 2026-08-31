@@ -1,0 +1,33 @@
+{
+  "name": "nekote-blog-obsidian",
+  "version": "0.0.1",
+  "description": "Obsidian plugin that publishes vault notes to Nekote Blog",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "node esbuild.config.js",
+    "build": "node esbuild.config.js --production",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tools.json",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "check:bundle": "node scripts/check-bundle.js",
+    "check:versions": "node scripts/check-versions.js",
+    "version": "node scripts/version-bump.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.1.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.9.1",
+    "globals": "^17.11.0",
+    "obsidian": "^1.13.1",
+    "prettier": "^3.9.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.9",
+    "yaml": "^2.9.0"
+  }
+}

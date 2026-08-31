@@ -1,0 +1,10 @@
+node_modules
+.DS_Store
+*.log
+
+# ビルド成果物。Releaseのassetとして添付するもので、リポジトリには置かない
+main.js
+main.js.map
+
+# ローカル検証用にvaultへリンクするときの置き場
+.tmp/

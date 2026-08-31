@@ -1,0 +1,9 @@
+allowBuilds:
+  esbuild: true
+
+# サプライチェーン攻撃対策: 公開から3日未満のバージョンはインストールしない
+minimumReleaseAge: 4320
+
+# サプライチェーン攻撃対策: パッケージの信頼レベルが以前のリリースより低下した場合、インストールを失敗させる
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 525600 # 1年以上前に公開されたパッケージは除外

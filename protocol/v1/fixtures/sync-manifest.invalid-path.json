@@ -1,0 +1,14 @@
+{
+  "protocolVersion": 1,
+  "vaultId": "vault-8f3a2b1c9d0e",
+  "contentRoot": "blog",
+  "baseRevision": 12,
+  "entries": [
+    {
+      "path": "posts/../../secrets.md",
+      "kind": "markdown",
+      "sha256": "0f9e8d7c6b5a49382716f5e4d3c2b1a09f8e7d6c5b4a39281706e5d4c3b2a190",
+      "bytes": 1024
+    }
+  ]
+}

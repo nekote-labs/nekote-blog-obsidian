@@ -1,0 +1,8 @@
+{
+  // テストとビルド用スクリプト。こちらだけNodeの型を持つ
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["tests", "scripts", "esbuild.config.js", "vitest.config.ts", "eslint.config.js"]
+}
