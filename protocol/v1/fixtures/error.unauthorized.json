@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "接続が無効です。Obsidianの設定画面から接続し直してください。"
+  }
+}

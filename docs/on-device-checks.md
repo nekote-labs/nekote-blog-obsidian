@@ -1,0 +1,28 @@
+# 実機で確定していない前提
+
+基準日: 2026-09-01・`nekote-blog@2c5fa5d2`
+
+このプラグインは macOS・Windows・Linux・iOS・Android を対象にする（`isDesktopOnly: false`）。
+そのうち**実機でしか確かめられない前提**は、公式ドキュメントと公式型定義で確認できる
+範囲までを根拠に暫定のまま実装している。ここに何が暫定で、どう測れば確定するかを残す。
+
+確定したら該当行を消し、必要なら実装を直す。値の正本はサーバー側リポジトリ
+（`nekote-blog` の `docs/spec/limits.md`）で、ここには書かない。
+
+## 確認済み
+
+| 項目 | 端末 | 結果 |
+| --- | --- | --- |
+| `crypto.subtle.digest("SHA-256")` のメモリ挙動 | iPhone実機（Obsidian 1.13.7 / iOS 18.7） | 20MiB 1件が14ms。20MiB×100件の逐次hash化も完走。純JSのフォールバックは不要 |
+
+## 未確定（このPRの実装が依存している）
+
+| # | 何を | どの端末で | どう測るか | 暫定の前提 |
+| --- | --- | --- | --- | --- |
+| 1 | `App.secretStorage` の実挙動。**端末間**（Obsidian Sync / iCloud経由）と**同一端末上の別vault間**の両方で共有されないこと | macOS・iOS・Android | 最小プラグインで `setSecret` / `getSecret` を往復させ、(a) 同じvaultを別端末へ同期して値が来ないこと、(b) 同じ端末に2つのvaultを作って一方の値が他方から読めないことを確認する。(b) はモバイルで値が混ざるという未解決のフォーラム報告があり、公式ドキュメントにも記載が無い | `minAppVersion: 1.11.4`。端末トークンがvault・端末ローカルに閉じる前提で `src/storage/secrets.ts` へ置いている |
+| 2 | `requestUrl()` でのArrayBuffer送信 | iOS・Android実機 | 10MiB・20MiBのバイナリをPUTし、成功率・所要時間・アプリのメモリ挙動を見る | 1ファイル上限は画像10MiB・動画/PDF 20MiB。厳しければ上限を下げるのではなくchunk uploadを足す。`NekoteApiClient.uploadBlob()` が該当 |
+| 3 | `crypto.subtle` のAndroid実機挙動 | Android実機 | 上の「確認済み」と同じ手順をAndroidで行う | iOSと同じに動く前提 |
+| 4 | モバイルOSによる中断 | iOS・Android実機 | 認可のpoll中・upload中にアプリをバックグラウンドへ送り、復帰後に続きから進めることを確認する | バックグラウンド完走は保証しない。端末ローカルの `pendingPushId` から再開する（反映の実装はPlugin PR2） |
+
+Vault APIの走査コスト・iCloud未取得ファイル（placeholder）の挙動は、vault走査を実装する
+Plugin PR2 の依存項目なのでここには含めていない。

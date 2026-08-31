@@ -1,0 +1,16 @@
+{
+  "protocolVersion": 1,
+  "blog": {
+    "id": "7f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+    "title": "ねこのブログ",
+    "subdomain": "neko"
+  },
+  "device": {
+    "id": "1c2d3e4f-5061-7283-94a5-b6c7d8e9f001",
+    "name": "MacBook Pro"
+  },
+  "source": {
+    "kind": "other",
+    "type": "notion"
+  }
+}

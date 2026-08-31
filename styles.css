@@ -1,0 +1,19 @@
+/* 設定画面の補助スタイル。Obsidianのテーマ変数だけを使う */
+.nekote-blog-description {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+/* 承認用のuser code。読み違えを防ぐため大きく等幅で出す */
+.nekote-blog-user-code {
+  font-family: var(--font-monospace);
+  font-size: 2em;
+  letter-spacing: 0.15em;
+  text-align: center;
+  padding: var(--size-4-4);
+  margin-bottom: var(--size-4-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background-color: var(--background-secondary);
+  user-select: text;
+}

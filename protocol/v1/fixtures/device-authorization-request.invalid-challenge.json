@@ -1,0 +1,6 @@
+{
+  "protocolVersion": 1,
+  "deviceName": "MacBook Pro",
+  "codeChallenge": "too-short",
+  "codeChallengeMethod": "S256"
+}

@@ -1,0 +1,10 @@
+node_modules
+main.js
+main.js.map
+pnpm-lock.yaml
+
+# Markdownは対象外。表のパディングを揃えられると差分が読みづらくなる
+*.md
+
+# APIの正本からvendorしたファイル。整形すると内容hashがずれる
+protocol/v1/

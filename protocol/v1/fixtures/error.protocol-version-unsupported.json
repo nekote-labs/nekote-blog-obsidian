@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "protocol_version_unsupported",
+    "message": "このバージョンのプラグインには対応していません。プラグインを更新してください。",
+    "details": {
+      "supportedProtocolVersion": 1
+    }
+  }
+}

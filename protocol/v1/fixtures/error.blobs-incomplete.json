@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "blobs_incomplete",
+    "message": "ファイルの送信が完了していません。不足分を送信し直してください。",
+    "details": {
+      "missing": [
+        "3b1f5c9d2e8a47c60b5d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d"
+      ]
+    }
+  }
+}

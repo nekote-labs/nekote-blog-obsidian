@@ -1,0 +1,20 @@
+{
+  "protocolVersion": 1,
+  "blog": {
+    "id": "7f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+    "title": "ねこのブログ",
+    "subdomain": "neko"
+  },
+  "device": {
+    "id": "1c2d3e4f-5061-7283-94a5-b6c7d8e9f001",
+    "name": "MacBook Pro"
+  },
+  "source": {
+    "kind": "obsidian",
+    "contentSourceId": "9a8b7c6d-5e4f-3021-8877-665544332211",
+    "vaultId": "vault-8f3a2b1c9d0e",
+    "contentRoot": "blog",
+    "appliedRevision": 12,
+    "manifestHash": "8b1a9953c4611296a827abf8c47804d7f0d2e6a0f0b4c9d3e2f1a0b9c8d7e6f5"
+  }
+}

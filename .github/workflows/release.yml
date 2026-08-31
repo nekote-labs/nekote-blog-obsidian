@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    # Obsidianの慣習に合わせ、タグに`v`は付けない
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check versions against tag
+        run: pnpm run check:versions "$GITHUB_REF_NAME"
+
+      - run: pnpm run typecheck
+      - run: pnpm run test
+      - run: pnpm run build
+      - run: pnpm run check:bundle
+
+      # Obsidian Community Pluginsは main.js / manifest.json / styles.css を
+      # Releaseのassetとして直接取得するため、3点を必ず添付する
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            main.js manifest.json styles.css
