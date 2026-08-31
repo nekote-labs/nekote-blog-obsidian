@@ -1,11 +1,15 @@
-// 設定画面。接続・接続状態の確認・接続解除だけを扱う
-// （コンテンツルート選択と反映操作はPlugin PR2）。
+// 設定画面。接続・接続状態の確認・接続解除と、公開の設定（コンテンツルート）を扱う。
 import { Notice, PluginSettingTab, Setting, type App } from "obsidian";
 import { API_BASE_URLS, type ApiEnvironment } from "../api/endpoints";
 import type { DeviceAuthorizationPrompt } from "../auth/device-authorization";
 import { NekoteApiError } from "../protocol/errors";
 import type { ConnectionResponse } from "../protocol/types";
+import { describeContentRoot } from "../sync/publish";
 import type NekoteBlogPlugin from "../main";
+
+/** コンテンツルートのdropdownで「未選択」「vaultのルート」を表す値 */
+const CONTENT_ROOT_NONE = "__none__";
+const CONTENT_ROOT_VAULT = "__vault__";
 
 export class NekoteBlogSettingTab extends PluginSettingTab {
   private readonly plugin: NekoteBlogPlugin;
@@ -42,6 +46,7 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       this.renderDisconnected(containerEl);
     }
 
+    this.renderPublishing(containerEl);
     this.renderAdvanced(containerEl);
   }
 
@@ -174,6 +179,62 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       );
   }
 
+  // --- 公開 -----------------------------------------------------------------
+
+  private renderPublishing(container: HTMLElement): void {
+    new Setting(container).setName("公開").setHeading();
+
+    container.createEl("p", {
+      cls: "nekote-blog-description",
+      text:
+        "コンテンツルート直下の posts/ が記事、pages/ が固定ページになります。" +
+        "本文とfrontmatterから参照している画像などは、コンテンツルートの外にあっても一緒に送ります。",
+    });
+
+    new Setting(container)
+      .setName("コンテンツルート")
+      .setDesc("公開の起点にするフォルダです。選ぶまで反映できません。")
+      .addDropdown((dropdown) => {
+        dropdown.addOption(CONTENT_ROOT_NONE, "（未選択）");
+        dropdown.addOption(CONTENT_ROOT_VAULT, describeContentRoot(""));
+        const folders = this.plugin.folderPaths().filter((path) => path !== "");
+        // 選択済みのフォルダが消えた・名前が変わった場合も、いま何が設定されているかは見せる
+        const current = this.plugin.settings.contentRoot;
+        if (current !== null && current !== "" && !folders.includes(current)) {
+          dropdown.addOption(current, `${current}（見つかりません）`);
+        }
+        for (const path of folders) dropdown.addOption(path, path);
+        dropdown.setValue(toDropdownValue(current));
+        dropdown.onChange((value) => {
+          void this.changeContentRoot(value);
+        });
+      });
+
+    const lastPush = this.plugin.settings.lastPush;
+    new Setting(container)
+      .setName("最終反映")
+      .setDesc(
+        lastPush === null
+          ? "まだ反映していません。"
+          : `${formatDateTime(lastPush.syncedAt)}（revision ${lastPush.revision}）`,
+      );
+
+    new Setting(container)
+      .setName("Nekote Blogへ反映")
+      .setDesc("いまのvaultの内容を送ります。送る前に内容を確認できます。")
+      .addButton((button) =>
+        button
+          .setButtonText("反映")
+          .setCta()
+          .setDisabled(
+            !this.plugin.connection.isConnected() || this.plugin.settings.contentRoot === null,
+          )
+          .onClick(() => {
+            void this.plugin.publish();
+          }),
+      );
+  }
+
   // --- 詳細設定 -------------------------------------------------------------
 
   private renderAdvanced(container: HTMLElement): void {
@@ -280,6 +341,26 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
     await this.plugin.updateSettings({ apiEnvironment: environment });
     this.display();
   }
+
+  private async changeContentRoot(value: string): Promise<void> {
+    await this.plugin.updateSettings({ contentRoot: fromDropdownValue(value) });
+    this.display();
+  }
+}
+
+function toDropdownValue(contentRoot: string | null): string {
+  if (contentRoot === null) return CONTENT_ROOT_NONE;
+  return contentRoot === "" ? CONTENT_ROOT_VAULT : contentRoot;
+}
+
+function fromDropdownValue(value: string): string | null {
+  if (value === CONTENT_ROOT_NONE) return null;
+  return value === CONTENT_ROOT_VAULT ? "" : value;
+}
+
+function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }
 
 function describeConnection(connection: ConnectionResponse | null): string {

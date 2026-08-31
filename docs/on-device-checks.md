@@ -22,7 +22,7 @@
 | 1 | `App.secretStorage` の実挙動。**端末間**（Obsidian Sync / iCloud経由）と**同一端末上の別vault間**の両方で共有されないこと | macOS・iOS・Android | 最小プラグインで `setSecret` / `getSecret` を往復させ、(a) 同じvaultを別端末へ同期して値が来ないこと、(b) 同じ端末に2つのvaultを作って一方の値が他方から読めないことを確認する。(b) はモバイルで値が混ざるという未解決のフォーラム報告があり、公式ドキュメントにも記載が無い | `minAppVersion: 1.11.4`。端末トークンがvault・端末ローカルに閉じる前提で `src/storage/secrets.ts` へ置いている |
 | 2 | `requestUrl()` でのArrayBuffer送信 | iOS・Android実機 | 10MiB・20MiBのバイナリをPUTし、成功率・所要時間・アプリのメモリ挙動を見る | 1ファイル上限は画像10MiB・動画/PDF 20MiB。厳しければ上限を下げるのではなくchunk uploadを足す。`NekoteApiClient.uploadBlob()` が該当 |
 | 3 | `crypto.subtle` のAndroid実機挙動 | Android実機 | 上の「確認済み」と同じ手順をAndroidで行う | iOSと同じに動く前提 |
-| 4 | モバイルOSによる中断 | iOS・Android実機 | 認可のpoll中・upload中にアプリをバックグラウンドへ送り、復帰後に続きから進めることを確認する | バックグラウンド完走は保証しない。端末ローカルの `pendingPushId` から再開する（反映の実装はPlugin PR2） |
-
-Vault APIの走査コスト・iCloud未取得ファイル（placeholder）の挙動は、vault走査を実装する
-Plugin PR2 の依存項目なのでここには含めていない。
+| 4 | モバイルOSによる中断 | iOS・Android実機 | 認可のpoll中・upload中にアプリをバックグラウンドへ送り、復帰後に続きから進めることを確認する | バックグラウンド完走は保証しない。端末ローカルの `pendingPushId` から再開する（`src/sync/publish.ts` の `reportResumedPush()`）|
+| 5 | Vault APIの走査コスト | macOS・iOS・Android | 10,000ノートのvaultで `getFiles()` と `TFile.stat` だけの件数集計、続いて本文の逐次読み取りの所要時間を測る | 本文を読む前のしきい値（Markdown 500件／50MiB）で止められる前提。`src/sync/scan.ts` の `scanVault()` が該当 |
+| 6 | iCloud未取得ファイル（placeholder）の挙動 | iOS・macOS（iCloud Driveにvaultを置く） | ダウンロード前のファイルを作り、`read()` / `readBinary()` / `TFile.stat` が何を返すか（例外か・0バイトか・待つか）を確認する | 暫定で「例外」と「`stat` のsizeが0でないのに中身が空」の2つを読み取り失敗とみなし、走査全体を止めている（`src/sync/scan.ts` の `readText()` / `readAssetBytes()`）。挙動が分かったら判定を見直す |
+| 7 | 実vaultでの正規化結果 | いずれか1台 | 実際のvaultをコンテンツルートへ置き、wikilink・embed・Calloutの正規化結果と警告件数を目視する | 変換規則は `nekote-blog` の `docs/spec/obsidian.md`「Obsidian記法の正規化」。Calloutの既定タイトルはObsidian公式ヘルプの "type identifier in title case" をそのまま実装しており、実機の表示と突き合わせていない |

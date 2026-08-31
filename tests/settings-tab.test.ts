@@ -69,7 +69,15 @@ function createTab(connect: ConnectFn): NekoteBlogSettingTab {
       isConnected: () => false,
       connect,
     },
-    settings: { apiEnvironment: "production", connection: null },
+    settings: {
+      apiEnvironment: "production",
+      connection: null,
+      vaultId: null,
+      contentRoot: null,
+      lastPush: null,
+    },
+    folderPaths: () => [],
+    publish: vi.fn(),
   };
   return new NekoteBlogSettingTab({} as never, plugin as never);
 }
