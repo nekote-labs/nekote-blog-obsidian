@@ -45,8 +45,7 @@ const REFERENCE_DEFINITION = new RegExp(
 );
 
 /** 直前の1文字も見て、`data-src`のような別の属性を拾わない。引用符なしの値もHTMLとして有効 */
-const HTML_ATTRIBUTE =
-  /(?:^|[\s"'])(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
+const HTML_ATTRIBUTE = /(?:^|[\s"'])(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
 
 /** サーバーがHASTから集める leaf directive。`url`だけがアセット参照 */
 const DIRECTIVE_URL =
