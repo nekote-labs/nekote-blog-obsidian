@@ -8,3 +8,6 @@ main.js.map
 
 # ローカル検証用にvaultへリンクするときの置き場
 .tmp/
+
+# OBSIDIAN_PLUGIN_DIR（vaultのプラグインフォルダ）を置く。端末ごとの値なのでcommitしない
+.env

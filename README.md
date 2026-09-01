@@ -48,12 +48,23 @@ pnpm run dev        # esbuildのwatch。main.jsを出力する
 pnpm run lint       # eslint + prettier
 pnpm run typecheck
 pnpm run test
-pnpm run build      # 本番ビルド（sourcemapなし）
+pnpm run build      # 本番ビルド（sourcemapなし）。OBSIDIAN_PLUGIN_DIR があればvaultへ複製する
 pnpm run check:bundle   # ビルド成果物にNode/Electron依存が無いことを検査
 ```
 
 vaultで動かすには、vaultの `.obsidian/plugins/nekote-blog/` へ `main.js`・`manifest.json`・
 `styles.css` を置く（またはリポジトリごとリンクする）。
+
+毎回コピーせずに済ませるには、リポジトリ直下の `.env`（gitignore対象）へ複製先を書く。
+`pnpm run build` がビルドの後に3ファイルをそこへ複製する。未設定なら何もしないので、
+CIとReleaseは影響を受けない。
+
+```sh
+OBSIDIAN_PLUGIN_DIR=/path/to/vault/.obsidian/plugins/nekote-blog
+```
+
+複製後はObsidianを再読み込みする（`Cmd+R`）。iOSやAndroidの実機で試すときは、
+vaultの同期経由でこのフォルダを届ける。
 
 ### リリース
 
