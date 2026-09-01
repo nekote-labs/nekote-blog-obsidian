@@ -386,11 +386,8 @@ async function assertSameContent(
       "反映の途中でvaultの内容が変わりました。もう一度「Nekote Blogへ反映」を実行してください。",
     );
   }
-  return toArrayBuffer(bytes);
-}
-
-function toArrayBuffer(bytes: Uint8Array<ArrayBuffer>): ArrayBuffer {
-  return bytes.slice().buffer;
+  // 呼び出し元はbuffer全体を占める新規のviewを渡す契約。部分viewを渡すと余分な内容まで返る
+  return bytes.buffer;
 }
 
 function summarize(

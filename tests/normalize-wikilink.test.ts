@@ -3,11 +3,8 @@ import { IssueCollector } from "../src/content/issues";
 import type { NormalizeContext } from "../src/normalize/context";
 import { normalizeWikilinks } from "../src/normalize/wikilink";
 import type { VaultFileRef } from "../src/vault/gateway";
-import { baseNameOf, extensionOf, fileNameOf, toContentRootRelative } from "../src/vault/paths";
-
-function fileRef(path: string): VaultFileRef {
-  return { path, vaultPath: path, extension: extensionOf(path), size: 0 };
-}
+import { baseNameOf, fileNameOf, toContentRootRelative } from "../src/vault/paths";
+import { fileRef } from "./support/vault-file-ref";
 
 /** `getFirstLinkpathDest`の代役。path・ファイル名・拡張子なしのどれでも引ける */
 function resolveFrom(files: readonly string[], linkpath: string): VaultFileRef | null {

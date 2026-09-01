@@ -3,23 +3,9 @@ import { NekoteApiClient } from "../src/api/client";
 import type { HttpFetch, HttpRequest, HttpResponse } from "../src/api/http";
 import { ConnectionService } from "../src/connection/connection-service";
 import { parsePluginSettings, type ConnectionHint } from "../src/storage/plugin-data";
-import { SecretStore, type SecretStorageLike } from "../src/storage/secrets";
-
-class FakeSecretStorage implements SecretStorageLike {
-  readonly values = new Map<string, string>();
-
-  getSecret(id: string): string | null {
-    return this.values.get(id) ?? null;
-  }
-
-  setSecret(id: string, secret: string): void {
-    this.values.set(id, secret);
-  }
-}
-
-function jsonResponse(status: number, body: unknown): HttpResponse {
-  return { status, headers: {}, text: JSON.stringify(body) };
-}
+import { SecretStore } from "../src/storage/secrets";
+import { jsonResponse } from "./support/api";
+import { FakeSecretStorage } from "./support/fake-secret-storage";
 
 interface Harness {
   service: ConnectionService;

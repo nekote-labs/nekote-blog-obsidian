@@ -4,6 +4,7 @@
 // **閉じ方によらず既定は`false`**にしてある（×やEscで閉じたら取り消し）。
 import { Modal, Setting, type App } from "obsidian";
 import type { ConfirmRequest } from "../sync/publish";
+import { appendTruncatedItems } from "./truncated-list";
 
 /** 1セクションに並べるpathの最大数。多いときは件数だけ見せる */
 const MAX_LISTED_ITEMS = 20;
@@ -32,15 +33,9 @@ class ConfirmModal extends Modal {
       const details = contentEl.createEl("details", { cls: "nekote-blog-section" });
       details.createEl("summary", { text: section.title });
       const list = details.createEl("ul", { cls: "nekote-blog-list" });
-      for (const item of section.items.slice(0, MAX_LISTED_ITEMS)) {
+      appendTruncatedItems(list, section.items, MAX_LISTED_ITEMS, (item) => {
         list.createEl("li", { text: item });
-      }
-      if (section.items.length > MAX_LISTED_ITEMS) {
-        list.createEl("li", {
-          cls: "nekote-blog-description",
-          text: `ほか ${section.items.length - MAX_LISTED_ITEMS}件`,
-        });
-      }
+      });
     }
 
     new Setting(contentEl)

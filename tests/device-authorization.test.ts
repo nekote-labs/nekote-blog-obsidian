@@ -4,29 +4,14 @@ import type { HttpFetch, HttpRequest, HttpResponse } from "../src/api/http";
 import { createCodeChallenge, createCodeVerifier } from "../src/auth/pkce";
 import { runDeviceAuthorization } from "../src/auth/device-authorization";
 import type { DeviceAuthorizationPrompt } from "../src/auth/device-authorization";
-import { SecretStore, type SecretStorageLike } from "../src/storage/secrets";
-
-/** `SecretStorage`は削除APIを持たないので、擬似実装も空文字で消す挙動に揃える */
-class FakeSecretStorage implements SecretStorageLike {
-  readonly values = new Map<string, string>();
-
-  getSecret(id: string): string | null {
-    return this.values.get(id) ?? null;
-  }
-
-  setSecret(id: string, secret: string): void {
-    this.values.set(id, secret);
-  }
-}
+import { SecretStore } from "../src/storage/secrets";
+import { jsonResponse } from "./support/api";
+import { FakeSecretStorage } from "./support/fake-secret-storage";
 
 interface Scenario {
   responses: HttpResponse[];
   requests: HttpRequest[];
   sleeps: number[];
-}
-
-function jsonResponse(status: number, body: unknown): HttpResponse {
-  return { status, headers: {}, text: JSON.stringify(body) };
 }
 
 function createScenario(responses: HttpResponse[]): Scenario {

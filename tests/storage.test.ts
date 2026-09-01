@@ -5,20 +5,8 @@ import {
   serializePluginSettings,
   type PluginSettings,
 } from "../src/storage/plugin-data";
-import { SecretStore, type SecretStorageLike } from "../src/storage/secrets";
-
-/** `App.secretStorage`の代役。削除APIが無い点まで合わせる（消すのは空文字の書き込み） */
-class FakeSecretStorage implements SecretStorageLike {
-  readonly entries = new Map<string, string>();
-
-  getSecret(id: string): string | null {
-    return this.entries.get(id) ?? null;
-  }
-
-  setSecret(id: string, secret: string): void {
-    this.entries.set(id, secret);
-  }
-}
+import { SecretStore } from "../src/storage/secrets";
+import { FakeSecretStorage } from "./support/fake-secret-storage";
 
 function setup(): { storage: FakeSecretStorage; store: SecretStore } {
   const storage = new FakeSecretStorage();
@@ -26,7 +14,7 @@ function setup(): { storage: FakeSecretStorage; store: SecretStore } {
 }
 
 function keyOf(storage: FakeSecretStorage, value: string): string {
-  for (const [key, stored] of storage.entries) {
+  for (const [key, stored] of storage.values) {
     if (stored === value) return key;
   }
   throw new Error(`値 ${value} が書き込まれていません。`);
@@ -55,7 +43,7 @@ describe("SecretStore: 端末トークン", () => {
     store.clearPushToken();
 
     expect(store.getPushToken()).toBeNull();
-    expect(storage.entries.get(id)).toBe("");
+    expect(storage.values.get(id)).toBe("");
   });
 
   it("外部から空文字が入っていてもnullとして扱う", () => {
@@ -94,8 +82,8 @@ describe("SecretStore: 端末認可の途中経過", () => {
     store.clearPendingAuthorization();
 
     expect(store.getPendingAuthorization()).toBeNull();
-    expect(storage.entries.get(verifierId)).toBe("");
-    expect(storage.entries.get(deviceCodeId)).toBe("");
+    expect(storage.values.get(verifierId)).toBe("");
+    expect(storage.values.get(deviceCodeId)).toBe("");
   });
 
   it("codeVerifierだけ残っていてもnull", () => {
@@ -126,7 +114,7 @@ describe("SecretStore: 中断したPushのpushId", () => {
     store.clearPendingPushId();
 
     expect(store.getPendingPushId()).toBeNull();
-    expect(storage.entries.get(id)).toBe("");
+    expect(storage.values.get(id)).toBe("");
   });
 
   it("未設定ならnull", () => {
@@ -144,7 +132,7 @@ describe("SecretStore: secret ID", () => {
     store.setPendingAuthorization({ codeVerifier: "verifier-1", deviceCode: "device-1" });
     store.setPendingPushId("push-1");
 
-    const ids = [...storage.entries.keys()];
+    const ids = [...storage.values.keys()];
     expect(ids).toHaveLength(4);
     for (const id of ids) {
       expect(id).toMatch(/^nekote-blog-[a-z0-9-]+$/);
@@ -158,7 +146,7 @@ describe("SecretStore: secret ID", () => {
     first.store.setPushToken("token-abc");
     second.store.setPushToken("token-xyz");
 
-    expect([...first.storage.entries.keys()]).toEqual([...second.storage.entries.keys()]);
+    expect([...first.storage.values.keys()]).toEqual([...second.storage.values.keys()]);
   });
 });
 

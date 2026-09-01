@@ -45,17 +45,6 @@ export function normalizeVaultPath(path: string): string {
   return path.normalize("NFC").replace(/^\/+/, "").replace(/\/+$/, "");
 }
 
-/** コンテンツルート候補（フォルダのpath）を正規形へ。vaultルートは空文字 */
-export function normalizeContentRoot(path: string): string {
-  const normalized = normalizeVaultPath(path);
-  return normalized === "." || normalized === "/" ? "" : normalized;
-}
-
-/** コンテンツルート相対pathをvaultルート相対pathへ */
-export function joinContentRoot(contentRoot: string, relativePath: string): string {
-  return contentRoot === "" ? relativePath : `${contentRoot}/${relativePath}`;
-}
-
 /** vaultルート相対pathをコンテンツルート相対pathへ。ルート外はnull */
 export function toContentRootRelative(vaultPath: string, contentRoot: string): string | null {
   if (contentRoot === "") return vaultPath;

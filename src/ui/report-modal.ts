@@ -5,6 +5,7 @@
 import { Modal, type App } from "obsidian";
 import type { PublishReport } from "../sync/publish";
 import type { ScannedArticle } from "../sync/scan";
+import { appendTruncatedItems } from "./truncated-list";
 
 /** 一覧に並べる記事の最大数。多いときは件数だけ見せる（モーダルが読めなくなるため） */
 const MAX_LISTED_ARTICLES = 30;
@@ -29,13 +30,9 @@ class ReportModal extends Modal {
     if (flagged.length > 0) {
       contentEl.createEl("h4", { text: `確認が必要な記事 ${flagged.length}件` });
       const list = contentEl.createEl("ul", { cls: "nekote-blog-list" });
-      for (const article of flagged.slice(0, MAX_LISTED_ARTICLES)) appendArticle(list, article);
-      if (flagged.length > MAX_LISTED_ARTICLES) {
-        list.createEl("li", {
-          cls: "nekote-blog-description",
-          text: `ほか ${flagged.length - MAX_LISTED_ARTICLES}件`,
-        });
-      }
+      appendTruncatedItems(list, flagged, MAX_LISTED_ARTICLES, (article) =>
+        appendArticle(list, article),
+      );
     }
 
     const samples = this.report.samples ?? [];

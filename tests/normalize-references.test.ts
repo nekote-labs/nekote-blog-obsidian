@@ -2,12 +2,8 @@ import { describe, expect, it } from "vitest";
 import { IssueCollector, type ArticleIssue } from "../src/content/issues";
 import type { NormalizeContext } from "../src/normalize/context";
 import { collectReferences, type CollectedReferences } from "../src/normalize/references";
-import type { VaultFileRef } from "../src/vault/gateway";
-import { extensionOf, toContentRootRelative } from "../src/vault/paths";
-
-function fileRef(path: string): VaultFileRef {
-  return { path, vaultPath: path, extension: extensionOf(path), size: 0 };
-}
+import { toContentRootRelative } from "../src/vault/paths";
+import { fileRef } from "./support/vault-file-ref";
 
 interface SetupOptions {
   /** 正規化する記事のvaultルート相対path */

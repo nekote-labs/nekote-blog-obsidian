@@ -9,8 +9,6 @@ import {
   isArticlePath,
   isCanonicalContentRoot,
   isCanonicalPath,
-  joinContentRoot,
-  normalizeContentRoot,
   normalizeVaultPath,
   relativePathFrom,
   resolveRelativePath,
@@ -83,30 +81,6 @@ describe("normalizeVaultPath()", () => {
 
   it("バックスラッシュは書き換えない（判定側で弾く）", () => {
     expect(normalizeVaultPath("posts\\a.md")).toBe("posts\\a.md");
-  });
-});
-
-describe("normalizeContentRoot()", () => {
-  it("NFDの文字はNFCへ寄る", () => {
-    expect(normalizeContentRoot(`blog/${NFD_GA}`)).toBe("blog/が");
-  });
-
-  it("前後の/が落ちる", () => {
-    expect(normalizeContentRoot("/blog/")).toBe("blog");
-  });
-
-  it.each(["", "/", "."])("vaultルートを表す値（%o）は空文字になる", (path) => {
-    expect(normalizeContentRoot(path)).toBe("");
-  });
-});
-
-describe("joinContentRoot()", () => {
-  it("ルートが空文字ならコンテンツルート相対のまま", () => {
-    expect(joinContentRoot("", "posts/a.md")).toBe("posts/a.md");
-  });
-
-  it("ルートがあれば前に付く", () => {
-    expect(joinContentRoot("blog", "posts/a.md")).toBe("blog/posts/a.md");
   });
 });
 

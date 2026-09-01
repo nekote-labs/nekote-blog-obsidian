@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { NekoteApiClient } from "../src/api/client";
 import { API_BASE_URLS, apiBaseUrl, isApiEnvironment } from "../src/api/endpoints";
 import { headerValue, type HttpFetch, type HttpRequest, type HttpResponse } from "../src/api/http";
-import { NekoteApiError } from "../src/protocol/errors";
 import type {
   AppliedManifestResponse,
   BlobUploadResponse,
@@ -17,6 +16,7 @@ import type {
   PushStatusResponse,
   SyncManifest,
 } from "../src/protocol/types";
+import { catchApiError } from "./support/api";
 
 const BASE_URL = "https://api.example.test/v1/obsidian";
 const TOKEN = "device-token-Zq3Yh1pR8vN0sKcW";
@@ -80,17 +80,6 @@ function setupThrowingFetch(error: unknown): Harness {
     getToken: () => TOKEN,
   });
   return { client, requests };
-}
-
-/** 例外の中身まで見たいのでrejects matcherではなく捕まえて返す */
-async function catchApiError(run: () => Promise<unknown>): Promise<NekoteApiError> {
-  try {
-    await run();
-  } catch (error) {
-    expect(error).toBeInstanceOf(NekoteApiError);
-    return error as NekoteApiError;
-  }
-  throw new Error("NekoteApiErrorが投げられませんでした。");
 }
 
 function bodyText(request: HttpRequest): string {

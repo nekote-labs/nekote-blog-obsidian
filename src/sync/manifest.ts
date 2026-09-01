@@ -90,7 +90,6 @@ export interface ManifestDiff {
   added: string[];
   updated: string[];
   deleted: string[];
-  unchanged: string[];
 }
 
 /**
@@ -105,14 +104,13 @@ export function diffAgainstApplied(
   applied: readonly { path: string; sha256: string }[],
 ): ManifestDiff {
   const appliedByPath = new Map(applied.map((entry) => [entry.path, entry.sha256]));
-  const diff: ManifestDiff = { added: [], updated: [], deleted: [], unchanged: [] };
+  const diff: ManifestDiff = { added: [], updated: [], deleted: [] };
 
   for (const entry of entries) {
     if (entry.kind !== "markdown") continue;
     const previous = appliedByPath.get(entry.path);
     if (previous === undefined) diff.added.push(entry.path);
-    else if (previous === entry.sha256) diff.unchanged.push(entry.path);
-    else diff.updated.push(entry.path);
+    else if (previous !== entry.sha256) diff.updated.push(entry.path);
   }
 
   const currentPaths = new Set(entries.map((entry) => entry.path));

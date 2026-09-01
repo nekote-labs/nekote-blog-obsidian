@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import type { NekoteApiClient } from "../src/api/client";
-import { API_ERROR_STATUS, NekoteApiError, type ApiErrorCode } from "../src/protocol/errors";
 import type {
   AppliedManifestResponse,
   BlobUploadResponse,
@@ -15,7 +14,7 @@ import type {
   SyncManifest,
 } from "../src/protocol/types";
 import { DEFAULT_SETTINGS, type PluginSettings } from "../src/storage/plugin-data";
-import { SecretStore, type SecretStorageLike } from "../src/storage/secrets";
+import { SecretStore } from "../src/storage/secrets";
 import {
   publish,
   type ConfirmRequest,
@@ -24,11 +23,19 @@ import {
 } from "../src/sync/publish";
 import type { VaultFileRef, VaultGateway } from "../src/vault/gateway";
 import { extensionOf } from "../src/vault/paths";
+import { FakeSecretStorage } from "./support/fake-secret-storage";
+import {
+  apiError,
+  beginResponse as pushBeginResponse,
+  enqueued,
+  statusResponse as pushStatusResponse,
+  take,
+  MANIFEST_HASH,
+  PUSH_ID,
+} from "./support/push-fixtures";
 
-const PUSH_ID = "018f2c34-5a6b-7c8d-9e0f-1a2b3c4d5e6f";
 const VAULT_ID = "vault-8f3a2b1c9d0e";
 const CREATED_VAULT_ID = "vault-created-0001";
-const STATUS_MANIFEST_HASH = "5d41402abc4b2a76b9719d911017c592a1b2c3d4e5f60718293a4b5c6d7e8f90";
 /** `deps.now()`が返す固定時刻。`lastPush.syncedAt`の確認に使う */
 const NOW = 1_700_000_000_000;
 
@@ -40,14 +47,6 @@ const OBSIDIAN_SOURCE: ConnectionSource = {
   appliedRevision: 12,
   manifestHash: "8b1a9953c4611296a827abf8c47804d7f0d2e6a0f0b4c9d3e2f1a0b9c8d7e6f5",
 };
-
-function apiError(code: ApiErrorCode): NekoteApiError {
-  return new NekoteApiError({
-    code,
-    status: API_ERROR_STATUS[code],
-    message: `サーバーが${code}を返しました。`,
-  });
-}
 
 // --- 偽のvault ---------------------------------------------------------------
 
@@ -101,69 +100,19 @@ function createVault(files: readonly FakeFile[], calls: string[]): VaultGateway 
   };
 }
 
-// --- 偽の保管 -----------------------------------------------------------------
-
-/** `SecretStorage`には削除APIが無いので、消すのは空文字の書き込み */
-class FakeSecretStorage implements SecretStorageLike {
-  readonly values = new Map<string, string>();
-  readonly writes: { id: string; secret: string }[] = [];
-
-  getSecret(id: string): string | null {
-    return this.values.get(id) ?? null;
-  }
-
-  setSecret(id: string, secret: string): void {
-    this.values.set(id, secret);
-    this.writes.push({ id, secret });
-  }
-}
-
 // --- 応答の見本 ---------------------------------------------------------------
 
+/** このvaultのノート2件が追加になる想定 */
 function beginResponse(overrides: Partial<PushBeginResponse> = {}): PushBeginResponse {
-  return {
-    protocolVersion: 1,
-    pushId: PUSH_ID,
-    state: "preflight",
-    baseRevision: 12,
-    appliedRevision: 12,
-    manifestHash: STATUS_MANIFEST_HASH,
-    preflight: {
-      addedCount: 2,
-      updatedCount: 0,
-      deletedCount: 0,
-      unchangedCount: 0,
-      missingBlobCount: 0,
-      missingBlobBytes: 0,
-      initialConnect: false,
-      confirmationReasons: [],
-    },
-    missingBlobs: [],
-    confirmationRequired: false,
-    expiresAt: "2026-09-01T00:30:00.000Z",
-    ...overrides,
-  };
+  return pushBeginResponse({ preflight: { addedCount: 2, unchangedCount: 0 }, ...overrides });
 }
 
-function enqueued(): PushFinalizeResponse {
-  return { pushId: PUSH_ID, state: "enqueued", jobId: "job-1", targetRevision: 13 };
-}
-
+/** 反映後の件数はpublishの結果表示に使うので常に載せる */
 function statusResponse(
   state: PushState,
   overrides: Partial<PushStatusResponse> = {},
 ): PushStatusResponse {
-  return {
-    pushId: PUSH_ID,
-    state,
-    baseRevision: 12,
-    targetRevision: state === "succeeded" ? 13 : null,
-    appliedRevision: state === "succeeded" ? 13 : 12,
-    manifestHash: STATUS_MANIFEST_HASH,
-    counts: { published: 1, draft: 1 },
-    expiresAt: "2026-09-01T00:30:00.000Z",
-    ...overrides,
-  };
+  return pushStatusResponse(state, { counts: { published: 1, draft: 1 }, ...overrides });
 }
 
 function appliedManifest(
@@ -180,13 +129,6 @@ function appliedManifest(
     ],
     ...overrides,
   };
-}
-
-function take<T>(queue: (T | Error)[], name: string): T {
-  const next = queue.shift();
-  if (next === undefined) throw new Error(`${name}が想定より多く呼ばれました。`);
-  if (next instanceof Error) throw next;
-  return next;
 }
 
 // --- ハーネス -----------------------------------------------------------------
@@ -486,7 +428,7 @@ describe("publish: 反映の結果", () => {
 
     expect(harness.settings.lastPush).toEqual({
       revision: 13,
-      manifestHash: STATUS_MANIFEST_HASH,
+      manifestHash: MANIFEST_HASH,
       syncedAt: new Date(NOW).toISOString(),
     });
     expect(harness.secrets.getPendingPushId()).toBeNull();

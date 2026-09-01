@@ -35,8 +35,4 @@ export class IssueCollector {
   list(): ArticleIssue[] {
     return [...this.issues];
   }
-
-  hasError(): boolean {
-    return this.issues.some((issue) => issue.level === "error");
-  }
 }

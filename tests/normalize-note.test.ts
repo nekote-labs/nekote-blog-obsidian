@@ -3,12 +3,8 @@ import { parse } from "yaml";
 import type { NormalizeContext } from "../src/normalize/context";
 import { normalizeNote, type NormalizedNote } from "../src/normalize/note";
 import { MAX_ARTICLE_ASSET_PATHS } from "../src/protocol/limits";
-import type { VaultFileRef } from "../src/vault/gateway";
-import { extensionOf, toContentRootRelative } from "../src/vault/paths";
-
-function fileRef(path: string): VaultFileRef {
-  return { path, vaultPath: path, extension: extensionOf(path), size: 0 };
-}
+import { toContentRootRelative } from "../src/vault/paths";
+import { fileRef } from "./support/vault-file-ref";
 
 /** 行を並べて原稿を作る。テスト側のインデントが原稿へ混ざらないように */
 function md(...lines: string[]): string {

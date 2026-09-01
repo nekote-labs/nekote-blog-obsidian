@@ -215,7 +215,7 @@ describe("buildSyncManifest()", () => {
 });
 
 describe("diffAgainstApplied()", () => {
-  it("追加・更新・変更なし・削除へ振り分ける", () => {
+  it("追加・更新・削除へ振り分ける", () => {
     const entries = [
       markdown("posts/added.md", "1".repeat(64)),
       markdown("posts/updated.md", "2".repeat(64)),
@@ -230,7 +230,6 @@ describe("diffAgainstApplied()", () => {
     expect(diffAgainstApplied(entries, applied)).toEqual({
       added: ["posts/added.md"],
       updated: ["posts/updated.md"],
-      unchanged: ["posts/same.md"],
       deleted: ["posts/deleted.md"],
     });
   });
@@ -239,7 +238,6 @@ describe("diffAgainstApplied()", () => {
     expect(diffAgainstApplied([markdown("posts/a.md"), markdown("posts/b.md")], [])).toEqual({
       added: ["posts/a.md", "posts/b.md"],
       updated: [],
-      unchanged: [],
       deleted: [],
     });
   });
@@ -250,7 +248,7 @@ describe("diffAgainstApplied()", () => {
       [{ path: "assets/changed.png", sha256: "6".repeat(64) }],
     );
 
-    expect(diff).toEqual({ added: [], updated: [], unchanged: [], deleted: [] });
+    expect(diff).toEqual({ added: [], updated: [], deleted: [] });
   });
 
   // 削除判定は種別を見ないので、アセットとして残っているpathは削除に出ない
@@ -280,7 +278,6 @@ describe("diffAgainstApplied()", () => {
     expect(diffAgainstApplied([], [])).toEqual({
       added: [],
       updated: [],
-      unchanged: [],
       deleted: [],
     });
   });

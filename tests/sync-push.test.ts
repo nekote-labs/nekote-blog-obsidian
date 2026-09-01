@@ -1,13 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NekoteApiClient } from "../src/api/client";
-import { API_ERROR_STATUS, NekoteApiError, type ApiErrorCode } from "../src/protocol/errors";
 import type {
   BlobUploadResponse,
   MissingBlob,
   PushBeginResponse,
   PushConfirmResponse,
   PushFinalizeResponse,
-  PushState,
   PushStatusResponse,
   SyncManifest,
 } from "../src/protocol/types";
@@ -19,50 +17,19 @@ import {
   type PushInput,
   type PushProgress,
 } from "../src/sync/push";
-
-const PUSH_ID = "018f2c34-5a6b-7c8d-9e0f-1a2b3c4d5e6f";
-const MANIFEST_HASH = "5d41402abc4b2a76b9719d911017c592a1b2c3d4e5f60718293a4b5c6d7e8f90";
-
-function apiError(code: ApiErrorCode, retryAfterSeconds?: number): NekoteApiError {
-  return new NekoteApiError({
-    code,
-    status: API_ERROR_STATUS[code],
-    message: `サーバーが${code}を返しました。`,
-    retryAfterSeconds,
-  });
-}
+import { catchApiError } from "./support/api";
+import {
+  apiError,
+  beginResponse,
+  enqueued,
+  statusResponse,
+  take,
+  MANIFEST_HASH,
+  PUSH_ID,
+} from "./support/push-fixtures";
 
 function missingBlob(sha256: string, bytes = 1024): MissingBlob {
   return { sha256, kind: "markdown", bytes };
-}
-
-function beginResponse(overrides: Partial<PushBeginResponse> = {}): PushBeginResponse {
-  return {
-    protocolVersion: 1,
-    pushId: PUSH_ID,
-    state: "preflight",
-    baseRevision: 12,
-    appliedRevision: 12,
-    manifestHash: MANIFEST_HASH,
-    preflight: {
-      addedCount: 1,
-      updatedCount: 0,
-      deletedCount: 0,
-      unchangedCount: 3,
-      missingBlobCount: 0,
-      missingBlobBytes: 0,
-      initialConnect: false,
-      confirmationReasons: [],
-    },
-    missingBlobs: [],
-    confirmationRequired: false,
-    expiresAt: "2026-09-01T00:30:00.000Z",
-    ...overrides,
-  };
-}
-
-function enqueued(): PushFinalizeResponse {
-  return { pushId: PUSH_ID, state: "enqueued", jobId: "job-1", targetRevision: 13 };
 }
 
 function verifying(retryAfter = 30): PushFinalizeResponse {
@@ -70,22 +37,6 @@ function verifying(retryAfter = 30): PushFinalizeResponse {
     pushId: PUSH_ID,
     state: "verifying",
     verification: { cursor: 500, verifiedEntryCount: 500, entryCount: 1200, retryAfter },
-  };
-}
-
-function statusResponse(
-  state: PushState,
-  overrides: Partial<PushStatusResponse> = {},
-): PushStatusResponse {
-  return {
-    pushId: PUSH_ID,
-    state,
-    baseRevision: 12,
-    targetRevision: state === "succeeded" ? 13 : null,
-    appliedRevision: state === "succeeded" ? 13 : 12,
-    manifestHash: MANIFEST_HASH,
-    expiresAt: "2026-09-01T00:30:00.000Z",
-    ...overrides,
   };
 }
 
@@ -99,14 +50,6 @@ function pushInput(): PushInput {
     }),
     manifestHash: MANIFEST_HASH,
   };
-}
-
-/** キューから1件取り出す。Errorが入っていればそれを投げる（サーバーの失敗の再現） */
-function take<T>(queue: (T | Error)[], name: string): T {
-  const next = queue.shift();
-  if (next === undefined) throw new Error(`${name}が想定より多く呼ばれました。`);
-  if (next instanceof Error) throw next;
-  return next;
 }
 
 interface FinalizeInput {
@@ -222,17 +165,6 @@ function createHarness(options: HarnessOptions = {}): Harness {
   };
 
   return { deps, calls, sleeps, progress, startedPushIds, manifests, finalizeInputs, uploaded };
-}
-
-/** 例外のcodeまで見たいので捕まえて返す */
-async function catchApiError(run: () => Promise<unknown>): Promise<NekoteApiError> {
-  try {
-    await run();
-  } catch (error) {
-    expect(error).toBeInstanceOf(NekoteApiError);
-    return error as NekoteApiError;
-  }
-  throw new Error("NekoteApiErrorが投げられませんでした。");
 }
 
 afterEach(() => {
