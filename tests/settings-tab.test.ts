@@ -106,11 +106,7 @@ function renderAdvanced(tab: NekoteBlogSettingTab): void {
 function renderContentLocation(tab: NekoteBlogSettingTab): void {
   (
     tab as unknown as { renderContentLocation: (container: HTMLElement) => void }
-  ).renderContentLocation({
-    createEl() {
-      return {};
-    },
-  } as unknown as HTMLElement);
+  ).renderContentLocation({} as unknown as HTMLElement);
 }
 
 function renderPublishing(tab: NekoteBlogSettingTab): void {

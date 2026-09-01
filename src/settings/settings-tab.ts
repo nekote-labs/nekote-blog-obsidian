@@ -187,16 +187,11 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   private renderContentLocation(container: HTMLElement): void {
     new Setting(container).setName("記事を置く場所").setHeading();
 
-    container.createEl("p", {
-      cls: "nekote-blog-description",
-      text:
-        "コンテンツルート直下の posts/ が記事、pages/ が固定ページになります。" +
-        "本文とfrontmatterから参照している画像などは、コンテンツルートの外にあっても一緒に送ります。",
-    });
-
     new Setting(container)
       .setName("コンテンツルート")
-      .setDesc("公開の起点にするフォルダです。選ぶまで反映できません。")
+      .setDesc(
+        "公開の起点にするフォルダです。直下の posts/ が記事、pages/ が固定ページになります。選ぶまで反映できません。",
+      )
       .addDropdown((dropdown) => {
         dropdown.addOption(CONTENT_ROOT_NONE, "（未選択）");
         dropdown.addOption(CONTENT_ROOT_VAULT, describeContentRoot(""));
