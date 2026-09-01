@@ -35,6 +35,7 @@ import {
 import { SecretStore } from "./storage/secrets";
 import { publish } from "./sync/publish";
 import { FrontmatterImageModal, type FrontmatterImageKey } from "./ui/frontmatter-image-modal";
+import { PropertiesActions } from "./ui/properties-actions";
 import { createPublishUi } from "./ui/publish-ui";
 import { ObsidianVaultGateway } from "./vault/obsidian-gateway";
 import { isPublishTargetVaultPath } from "./vault/paths";
@@ -49,6 +50,10 @@ export default class NekoteBlogPlugin extends Plugin {
   private publishing: AbortController | null = null;
   /** ノートヘッダーへ足した反映ボタン。`addAction`に削除APIが無いので自分で持つ */
   private readonly noteActions = new Map<MarkdownView, HTMLElement>();
+  /** プロパティ欄の直下へDOM注入する画像選択ボタン行 */
+  private readonly propertiesActions = new PropertiesActions((file, key) => {
+    this.openImagePicker(file, key);
+  });
 
   async onload(): Promise<void> {
     this.settings = parsePluginSettings(await this.loadData());
@@ -151,6 +156,7 @@ export default class NekoteBlogPlugin extends Plugin {
     this.publishing?.abort();
     for (const action of this.noteActions.values()) action.remove();
     this.noteActions.clear();
+    this.propertiesActions.dispose();
   }
 
   /**
@@ -338,7 +344,8 @@ export default class NekoteBlogPlugin extends Plugin {
   }
 
   /**
-   * 開いているMarkdown viewへ反映ボタンを行き渡らせ、公開対象ノートのときだけ見せる。
+   * 開いているMarkdown viewへ反映ボタンとプロパティ欄のボタン行を行き渡らせ、
+   * 公開対象ノートのときだけ見せる。
    * 閉じたviewの分はここで外す（プラグイン無効化時の後始末は`onunload`）
    */
   private syncNoteActions(): void {
@@ -355,14 +362,16 @@ export default class NekoteBlogPlugin extends Plugin {
         });
         this.noteActions.set(view, action);
       }
-      action.toggle(
-        view.file !== null && isPublishTargetVaultPath(view.file.path, this.settings.contentRoot),
-      );
+      const isTarget =
+        view.file !== null && isPublishTargetVaultPath(view.file.path, this.settings.contentRoot);
+      action.toggle(isTarget);
+      this.propertiesActions.sync(view, isTarget);
     }
     for (const [view, action] of this.noteActions) {
       if (open.has(view)) continue;
       action.remove();
       this.noteActions.delete(view);
+      this.propertiesActions.detach(view);
     }
   }
 

@@ -39,3 +39,28 @@
 .nekote-blog-issue-error {
   color: var(--text-error);
 }
+
+/* プロパティ欄の直下へDOM注入する画像選択ボタン行（src/ui/properties-actions.ts） */
+.nekote-blog-property-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  margin-top: var(--size-2-3);
+}
+
+.nekote-blog-property-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.nekote-blog-property-action .svg-icon {
+  --icon-size: var(--icon-xs);
+}
+
+/* プロパティ欄を畳んだらボタンも隠す（`.is-collapsed`は内部クラスで無保証） */
+.metadata-container.is-collapsed .nekote-blog-property-actions {
+  display: none;
+}
