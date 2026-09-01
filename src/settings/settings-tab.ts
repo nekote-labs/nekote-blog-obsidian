@@ -1,4 +1,4 @@
-// 設定画面。接続・接続状態の確認・接続解除と、公開の設定（コンテンツルート）を扱う。
+// 設定画面。接続・接続状態の確認・接続解除と、記事を置く場所（コンテンツルート）・公開の設定を扱う。
 import { Notice, PluginSettingTab, Setting, type App } from "obsidian";
 import { API_BASE_URLS, type ApiEnvironment } from "../api/endpoints";
 import type { DeviceAuthorizationPrompt } from "../auth/device-authorization";
@@ -10,6 +10,8 @@ import type NekoteBlogPlugin from "../main";
 /** コンテンツルートのdropdownで「未選択」「vaultのルート」を表す値 */
 const CONTENT_ROOT_NONE = "__none__";
 const CONTENT_ROOT_VAULT = "__vault__";
+/** 画像の取り込み先dropdownで「既定（コンテンツルート直下のassets）」を表す値 */
+const IMPORT_FOLDER_DEFAULT = "__default__";
 
 export class NekoteBlogSettingTab extends PluginSettingTab {
   private readonly plugin: NekoteBlogPlugin;
@@ -46,6 +48,7 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       this.renderDisconnected(containerEl);
     }
 
+    this.renderContentLocation(containerEl);
     this.renderPublishing(containerEl);
     this.renderAdvanced(containerEl);
   }
@@ -179,10 +182,10 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       );
   }
 
-  // --- 公開 -----------------------------------------------------------------
+  // --- 記事を置く場所 -------------------------------------------------------
 
-  private renderPublishing(container: HTMLElement): void {
-    new Setting(container).setName("公開").setHeading();
+  private renderContentLocation(container: HTMLElement): void {
+    new Setting(container).setName("記事を置く場所").setHeading();
 
     container.createEl("p", {
       cls: "nekote-blog-description",
@@ -209,6 +212,43 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
           void this.changeContentRoot(value);
         });
       });
+
+    new Setting(container)
+      .setName("画像の取り込み先")
+      .setDesc("サムネイル・カバーの「画像ファイルを取り込む…」で保存するフォルダです。")
+      .addDropdown((dropdown) => {
+        dropdown.addOption(IMPORT_FOLDER_DEFAULT, "コンテンツルート直下の assets（既定）");
+        const folders = this.plugin.folderPaths().filter((path) => path !== "");
+        // 選択済みのフォルダが消えた・名前が変わった場合も、いま何が設定されているかは見せる
+        const current = this.plugin.settings.imageImportFolder;
+        if (current !== null && !folders.includes(current)) {
+          dropdown.addOption(current, `${current}（見つかりません）`);
+        }
+        for (const path of folders) dropdown.addOption(path, path);
+        dropdown.setValue(current ?? IMPORT_FOLDER_DEFAULT);
+        dropdown.onChange((value) => {
+          void this.plugin.updateSettings({
+            imageImportFolder: value === IMPORT_FOLDER_DEFAULT ? null : value,
+          });
+        });
+      });
+  }
+
+  // --- 公開 -----------------------------------------------------------------
+
+  private renderPublishing(container: HTMLElement): void {
+    new Setting(container).setName("公開").setHeading();
+
+    new Setting(container)
+      .setName("新規ノートにフロントマターを自動挿入")
+      .setDesc(
+        "posts・pages配下に作った空のノートへ、公開用のフロントマター（draft: trueなど）を最初から入れます。",
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.autoInsertFrontmatter).onChange((value) => {
+          void this.plugin.updateSettings({ autoInsertFrontmatter: value });
+        }),
+      );
 
     const lastPush = this.plugin.settings.lastPush;
     new Setting(container)

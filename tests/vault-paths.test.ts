@@ -9,6 +9,7 @@ import {
   isArticlePath,
   isCanonicalContentRoot,
   isCanonicalPath,
+  isPublishTargetVaultPath,
   normalizeVaultPath,
   relativePathFrom,
   resolveRelativePath,
@@ -146,6 +147,32 @@ describe("isArticlePath()", () => {
     { label: "正規形でない", path: "posts//a.md" },
   ])("記事でないpath（$label）は偽", ({ path }) => {
     expect(isArticlePath(path)).toBe(false);
+  });
+});
+
+describe("isPublishTargetVaultPath()", () => {
+  it.each([
+    { label: "コンテンツルート配下のposts", path: "blog/posts/a.md", contentRoot: "blog" },
+    { label: "コンテンツルート配下のpages", path: "blog/pages/a.md", contentRoot: "blog" },
+    { label: "postsのサブディレクトリ", path: "blog/posts/2026/a.md", contentRoot: "blog" },
+    { label: "vaultルートがコンテンツルート", path: "posts/a.md", contentRoot: "" },
+    {
+      label: "NFDのpath（Obsidian APIの値を正規化して判定）",
+      path: `blog/posts/${NFD_GA}.md`,
+      contentRoot: "blog",
+    },
+  ])("公開対象のノート（$label）は真", ({ path, contentRoot }) => {
+    expect(isPublishTargetVaultPath(path, contentRoot)).toBe(true);
+  });
+
+  it.each([
+    { label: "コンテンツルート未選択", path: "blog/posts/a.md", contentRoot: null },
+    { label: "コンテンツルート外", path: "notes/posts/a.md", contentRoot: "blog" },
+    { label: "posts・pages以外", path: "blog/drafts/a.md", contentRoot: "blog" },
+    { label: "md以外", path: "blog/posts/a.png", contentRoot: "blog" },
+    { label: "コンテンツルート直下", path: "blog/a.md", contentRoot: "blog" },
+  ])("公開対象でないpath（$label）は偽", ({ path, contentRoot }) => {
+    expect(isPublishTargetVaultPath(path, contentRoot)).toBe(false);
   });
 });
 

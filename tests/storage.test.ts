@@ -157,9 +157,11 @@ const validConnection = {
 
 const KNOWN_SETTING_KEYS = [
   "apiEnvironment",
+  "autoInsertFrontmatter",
   "connection",
   "contentRoot",
   "devMode",
+  "imageImportFolder",
   "lastPush",
   "vaultId",
 ];
@@ -192,6 +194,8 @@ describe("parsePluginSettings()", () => {
       connection: validConnection,
       vaultId: "vault-abcdefgh",
       contentRoot: "blog",
+      autoInsertFrontmatter: false,
+      imageImportFolder: "blog/assets",
       lastPush: { revision: 3, manifestHash: "a".repeat(64), syncedAt: "2026-09-01T00:00:00.000Z" },
     });
 
@@ -201,9 +205,29 @@ describe("parsePluginSettings()", () => {
       connection: validConnection,
       vaultId: "vault-abcdefgh",
       contentRoot: "blog",
+      autoInsertFrontmatter: false,
+      imageImportFolder: "blog/assets",
       lastPush: { revision: 3, manifestHash: "a".repeat(64), syncedAt: "2026-09-01T00:00:00.000Z" },
     });
   });
+
+  it("autoInsertFrontmatterは明示的なfalseだけがfalseになる", () => {
+    expect(parsePluginSettings({ autoInsertFrontmatter: false }).autoInsertFrontmatter).toBe(false);
+  });
+
+  it.each([true, "false", 0, 1, null, {}, undefined])(
+    "false以外のautoInsertFrontmatter（%o）は既定のtrueへ倒れる",
+    (autoInsertFrontmatter) => {
+      expect(parsePluginSettings({ autoInsertFrontmatter }).autoInsertFrontmatter).toBe(true);
+    },
+  );
+
+  it.each(["", "/assets", "assets/", "../assets", 1, null, {}])(
+    "正規形でない画像の取り込み先（%o）はnull（既定）になる",
+    (imageImportFolder) => {
+      expect(parsePluginSettings({ imageImportFolder }).imageImportFolder).toBeNull();
+    },
+  );
 
   it.each(["true", 1, {}, [], null])("真偽値でないdevMode（%o）はfalseへ倒れる", (devMode) => {
     expect(parsePluginSettings({ devMode }).devMode).toBe(false);

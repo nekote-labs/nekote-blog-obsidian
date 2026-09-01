@@ -5,7 +5,7 @@
 // ここにある接続情報は表示と競合検出のためのhintで、正は`GET /connection`。
 import { DEFAULT_API_ENVIRONMENT, isApiEnvironment, type ApiEnvironment } from "../api/endpoints";
 import type { ConnectionBlog, ConnectionDevice } from "../protocol/types";
-import { isCanonicalContentRoot } from "../vault/paths";
+import { isCanonicalContentRoot, isCanonicalPath } from "../vault/paths";
 
 /** 承認済みの接続先（表示用のhint。秘密は含まない） */
 export interface ConnectionHint {
@@ -37,6 +37,13 @@ export interface PluginSettings {
   vaultId: string | null;
   /** コンテンツルート（vaultルート相対。vaultルート自体は空文字）。未選択はnull */
   contentRoot: string | null;
+  /** 公開対象フォルダの空の新規ノートへfrontmatterのひな形を自動挿入する */
+  autoInsertFrontmatter: boolean;
+  /**
+   * 画像取り込みの保存先フォルダ（vaultルート相対）。
+   * nullは既定＝コンテンツルート直下の`assets`
+   */
+  imageImportFolder: string | null;
   lastPush: LastPushHint | null;
 }
 
@@ -46,6 +53,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   connection: null,
   vaultId: null,
   contentRoot: null,
+  autoInsertFrontmatter: true,
+  imageImportFolder: null,
   lastPush: null,
 };
 
@@ -77,6 +86,12 @@ export function parsePluginSettings(raw: unknown): PluginSettings {
       typeof input.contentRoot === "string" && isCanonicalContentRoot(input.contentRoot)
         ? input.contentRoot
         : null,
+    // 既定trueなので、明示的なfalseだけを尊重する（壊れた値は既定値へ倒す）
+    autoInsertFrontmatter: input.autoInsertFrontmatter !== false,
+    imageImportFolder:
+      typeof input.imageImportFolder === "string" && isCanonicalPath(input.imageImportFolder)
+        ? input.imageImportFolder
+        : null,
     lastPush: parseLastPush(input.lastPush),
   };
 }
@@ -95,6 +110,8 @@ export function serializePluginSettings(settings: PluginSettings): PluginSetting
           },
     vaultId: settings.vaultId,
     contentRoot: settings.contentRoot,
+    autoInsertFrontmatter: settings.autoInsertFrontmatter,
+    imageImportFolder: settings.imageImportFolder,
     lastPush: settings.lastPush === null ? null : { ...settings.lastPush },
   };
 }

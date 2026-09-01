@@ -84,6 +84,16 @@ export function isArticlePath(articlePath: string): boolean {
   );
 }
 
+/**
+ * vaultルート相対pathが公開対象のノートか（コンテンツルート配下の`posts/`・`pages/`の`.md`）。
+ * Push走査と同じ規則で判定する。コンテンツルート未選択（null）は常にfalse
+ */
+export function isPublishTargetVaultPath(vaultPath: string, contentRoot: string | null): boolean {
+  if (contentRoot === null) return false;
+  const relative = toContentRootRelative(normalizeVaultPath(vaultPath), contentRoot);
+  return relative !== null && isArticlePath(relative);
+}
+
 /** pathのディレクトリ部分（vaultルート直下なら空文字） */
 export function directoryOf(path: string): string {
   const slash = path.lastIndexOf("/");

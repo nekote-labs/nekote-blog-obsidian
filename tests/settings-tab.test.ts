@@ -37,6 +37,9 @@ vi.mock("obsidian", () => {
     addDropdown() {
       return this;
     }
+    addToggle() {
+      return this;
+    }
   }
 
   class Notice {}
@@ -79,6 +82,8 @@ function createTab(connect: ConnectFn, settings: { devMode?: boolean } = {}): Ne
       connection: null,
       vaultId: null,
       contentRoot: null,
+      autoInsertFrontmatter: true,
+      imageImportFolder: null,
       lastPush: null,
       ...settings,
     },
@@ -98,6 +103,22 @@ function renderAdvanced(tab: NekoteBlogSettingTab): void {
   );
 }
 
+function renderContentLocation(tab: NekoteBlogSettingTab): void {
+  (
+    tab as unknown as { renderContentLocation: (container: HTMLElement) => void }
+  ).renderContentLocation({
+    createEl() {
+      return {};
+    },
+  } as unknown as HTMLElement);
+}
+
+function renderPublishing(tab: NekoteBlogSettingTab): void {
+  (tab as unknown as { renderPublishing: (container: HTMLElement) => void }).renderPublishing(
+    {} as unknown as HTMLElement,
+  );
+}
+
 describe("NekoteBlogSettingTabの詳細設定", () => {
   beforeEach(() => {
     renderedNames.list.length = 0;
@@ -113,6 +134,35 @@ describe("NekoteBlogSettingTabの詳細設定", () => {
     renderAdvanced(createTab(vi.fn<ConnectFn>(), { devMode: true }));
 
     expect(renderedNames.list).toEqual(["詳細", "接続先"]);
+  });
+});
+
+describe("NekoteBlogSettingTabの記事を置く場所セクション", () => {
+  beforeEach(() => {
+    renderedNames.list.length = 0;
+  });
+
+  it("コンテンツルートと画像の取り込み先を描画する", () => {
+    renderContentLocation(createTab(vi.fn<ConnectFn>()));
+
+    expect(renderedNames.list).toEqual(["記事を置く場所", "コンテンツルート", "画像の取り込み先"]);
+  });
+});
+
+describe("NekoteBlogSettingTabの公開セクション", () => {
+  beforeEach(() => {
+    renderedNames.list.length = 0;
+  });
+
+  it("フロントマター自動挿入のトグルを描画する", () => {
+    renderPublishing(createTab(vi.fn<ConnectFn>()));
+
+    expect(renderedNames.list).toEqual([
+      "公開",
+      "新規ノートにフロントマターを自動挿入",
+      "最終反映",
+      "Nekote Blogへ反映",
+    ]);
   });
 });
 

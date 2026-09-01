@@ -14,6 +14,7 @@ import type { YamlParser } from "../content/frontmatter";
 import { NekoteApiError } from "../protocol/errors";
 import type {
   AppliedManifestResponse,
+  ConnectionBlog,
   ConnectionSource,
   PushBeginResponse,
   PushStatusResponse,
@@ -102,9 +103,13 @@ export async function publish(deps: PublishDeps): Promise<void> {
 
     if (!(await confirmServerRevision(deps, connection.source, scan))) return;
 
+    // どの導線（設定画面・コマンド・リボン・ノート上のボタン）から来ても、
+    // 送信の直前に必ず1回確認する。1クリックでPushまで進ませない
+    if (!(await deps.ui.confirm(publishConfirmRequest(contentRoot, scan, connection.blog)))) return;
+
     const baseRevision =
       connection.source.kind === "obsidian" ? connection.source.appliedRevision : 0;
-    const outcome = await push(deps, scan, vaultId, baseRevision);
+    const outcome = await push(deps, scan, vaultId, baseRevision, connection.blog);
     await reportOutcome(deps, scan, outcome);
   } catch (error) {
     reportFailure(deps, error);
@@ -117,7 +122,8 @@ async function reportResumedPush(deps: PublishDeps): Promise<boolean> {
   if (pushId === null) return false;
 
   deps.ui.progress("前回の反映の状況を確認しています…");
-  const outcome = await resumePush(pushDeps(deps, null), pushId);
+  // 再開経路は`GET /connection`を呼んでいないので、反映先のブログは示せない
+  const outcome = await resumePush(pushDeps(deps, null, null), pushId);
   if (outcome === null) {
     // まだ原本を送っている途中か、期限切れ。走査からやり直せば同じPushへ合流する
     deps.secrets.clearPendingPushId();
@@ -166,6 +172,25 @@ function scanConfirmRequest(
         : "このまま続けると、これらのアセットを読み取ります。",
     ],
     confirmLabel: "続ける",
+  };
+}
+
+function publishConfirmRequest(
+  contentRoot: string,
+  scan: ScanResult,
+  blog: ConnectionBlog,
+): ConfirmRequest {
+  const { summary } = scan;
+  return {
+    title: "Nekote Blogへ反映します",
+    paragraphs: [
+      describeBlog(blog),
+      `コンテンツルート「${describeContentRoot(contentRoot)}」のノート${summary.markdown.count}件` +
+        `（公開${summary.publishedCount}件・下書き${summary.draftCount}件）・` +
+        `参照アセット${summary.asset.count}件を反映します。`,
+      "変更のないファイルは送信されません。前回の反映から消えたノートはブログからも削除されます。",
+    ],
+    confirmLabel: "反映する",
   };
 }
 
@@ -285,10 +310,11 @@ async function push(
   scan: ScanResult,
   vaultId: string,
   baseRevision: number,
+  blog: ConnectionBlog,
 ): Promise<PushOutcome> {
   const manifestHash = scan.manifestHash;
   const start = (base: number): Promise<PushOutcome> =>
-    runPush(pushDeps(deps, scan), {
+    runPush(pushDeps(deps, scan, blog), {
       manifest: buildSyncManifest({
         vaultId,
         contentRoot: scan.contentRoot,
@@ -312,14 +338,18 @@ async function push(
   }
 }
 
-function pushDeps(deps: PublishDeps, scan: ScanResult | null): PushDeps {
+function pushDeps(
+  deps: PublishDeps,
+  scan: ScanResult | null,
+  blog: ConnectionBlog | null,
+): PushDeps {
   return {
     client: deps.client,
     loadBlob: (sha256) => {
       if (scan === null) throw new Error("送信対象がありません。");
       return scan.loadBlob(sha256);
     },
-    confirm: (begin) => deps.ui.confirm(preflightRequest(begin, scan)),
+    confirm: (begin) => deps.ui.confirm(preflightRequest(begin, scan, blog)),
     report: (progress) =>
       deps.ui.progress(
         progress.message,
@@ -340,7 +370,11 @@ const CONFIRMATION_REASONS: Record<string, string> = {
   large_upload: "送信するファイルの量が多くなります。",
 };
 
-function preflightRequest(begin: PushBeginResponse, scan: ScanResult | null): ConfirmRequest {
+function preflightRequest(
+  begin: PushBeginResponse,
+  scan: ScanResult | null,
+  blog: ConnectionBlog | null,
+): ConfirmRequest {
   const { preflight } = begin;
   const sections: ConfirmSection[] = [];
   if (scan !== null) {
@@ -355,6 +389,7 @@ function preflightRequest(begin: PushBeginResponse, scan: ScanResult | null): Co
   return {
     title: preflight.initialConnect ? "初めての反映を確定します" : "反映の内容を確認してください",
     paragraphs: [
+      ...(blog === null ? [] : [describeBlog(blog)]),
       ...preflight.confirmationReasons.map(
         (reason) => CONFIRMATION_REASONS[reason] ?? "内容の確認が必要です。",
       ),
@@ -455,6 +490,11 @@ function reportFailure(deps: PublishDeps, error: unknown): void {
   }
 
   deps.ui.notice("Nekote Blog: 予期しないエラーが発生しました。", 10000);
+}
+
+/** 間違ったブログへ反映しないよう、確認の先頭に出す */
+function describeBlog(blog: ConnectionBlog): string {
+  return `反映先のブログ: ${blog.title}（${blog.subdomain}.nekote.blog）`;
 }
 
 export function describeContentRoot(contentRoot: string): string {
