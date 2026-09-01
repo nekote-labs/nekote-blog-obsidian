@@ -213,6 +213,38 @@ describe("runDeviceAuthorization", () => {
     expect(secrets.getPendingAuthorization()).toBeNull();
   });
 
+  it("開始APIの応答を待つ間に中止したら承認ページを開かない", async () => {
+    const controller = new AbortController();
+    const storage = new FakeSecretStorage();
+    const secrets = new SecretStore(storage);
+    const requests: HttpRequest[] = [];
+    const prompts: DeviceAuthorizationPrompt[] = [];
+    const client = new NekoteApiClient({
+      fetch: async (request) => {
+        requests.push(request);
+        // 応答が返る前に「中止」を押した状況
+        controller.abort();
+        return jsonResponse(201, authorizationResponse);
+      },
+      getBaseUrl: () => "https://api.example.test/v1/obsidian",
+      getToken: () => null,
+    });
+
+    const result = await runDeviceAuthorization(
+      { client, secrets, now: () => 0, sleep: async () => {} },
+      {
+        deviceName: "MacBook Pro",
+        onPrompt: (prompt) => prompts.push(prompt),
+        signal: controller.signal,
+      },
+    );
+
+    expect(result).toEqual({ status: "cancelled" });
+    expect(prompts).toEqual([]);
+    expect(requests).toHaveLength(1);
+    expect(secrets.getPendingAuthorization()).toBeNull();
+  });
+
   it("通信に失敗しても処理中のsecretを残さない", async () => {
     const storage = new FakeSecretStorage();
     const secrets = new SecretStore(storage);
