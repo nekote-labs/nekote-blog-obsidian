@@ -155,7 +155,14 @@ const validConnection = {
   device: { id: "device-1", name: "MacBook Pro" },
 };
 
-const KNOWN_SETTING_KEYS = ["apiEnvironment", "connection", "contentRoot", "lastPush", "vaultId"];
+const KNOWN_SETTING_KEYS = [
+  "apiEnvironment",
+  "connection",
+  "contentRoot",
+  "devMode",
+  "lastPush",
+  "vaultId",
+];
 
 describe("parsePluginSettings()", () => {
   // it.eachは配列のcaseをそのまま1引数として渡すが、テスト名の展開だけ中身を使うので
@@ -181,6 +188,7 @@ describe("parsePluginSettings()", () => {
   it("正しい設定はそのまま読める", () => {
     const settings = parsePluginSettings({
       apiEnvironment: "staging",
+      devMode: true,
       connection: validConnection,
       vaultId: "vault-abcdefgh",
       contentRoot: "blog",
@@ -189,11 +197,16 @@ describe("parsePluginSettings()", () => {
 
     expect(settings).toEqual({
       apiEnvironment: "staging",
+      devMode: true,
       connection: validConnection,
       vaultId: "vault-abcdefgh",
       contentRoot: "blog",
       lastPush: { revision: 3, manifestHash: "a".repeat(64), syncedAt: "2026-09-01T00:00:00.000Z" },
     });
+  });
+
+  it.each(["true", 1, {}, [], null])("真偽値でないdevMode（%o）はfalseへ倒れる", (devMode) => {
+    expect(parsePluginSettings({ devMode }).devMode).toBe(false);
   });
 
   it.each(["short", "vault id with space", "a".repeat(65), "vault/id", 1, null, {}])(

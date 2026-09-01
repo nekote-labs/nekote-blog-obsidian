@@ -238,6 +238,10 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 詳細設定 -------------------------------------------------------------
 
   private renderAdvanced(container: HTMLElement): void {
+    // 開発者専用（`data.json`へ`"devMode": true`を手書きした端末だけ）。
+    // 配布ユーザーにstagingの選択肢を見せない。詳細セクションは今これしか無いので丸ごと消す
+    if (!this.plugin.settings.devMode) return;
+
     new Setting(container).setName("詳細").setHeading();
 
     new Setting(container)

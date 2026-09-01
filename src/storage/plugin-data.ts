@@ -23,6 +23,12 @@ export interface LastPushHint {
 
 export interface PluginSettings {
   apiEnvironment: ApiEnvironment;
+  /**
+   * 開発者モード。`data.json`への手書き専用で、UIからは変更できない。
+   * trueの端末だけ設定画面に「接続先」（staging切替）を描画する。
+   * 隠す目的はUIの整理だけで、セキュリティ境界ではない（接続先の許可リストが守り）
+   */
+  devMode: boolean;
   connection: ConnectionHint | null;
   /**
    * このvaultの安定ID。サーバーは有効なObsidian sourceについて一意にし、
@@ -36,6 +42,7 @@ export interface PluginSettings {
 
 export const DEFAULT_SETTINGS: PluginSettings = {
   apiEnvironment: DEFAULT_API_ENVIRONMENT,
+  devMode: false,
   connection: null,
   vaultId: null,
   contentRoot: null,
@@ -60,6 +67,7 @@ export function parsePluginSettings(raw: unknown): PluginSettings {
     apiEnvironment: isApiEnvironment(input.apiEnvironment)
       ? input.apiEnvironment
       : DEFAULT_API_ENVIRONMENT,
+    devMode: input.devMode === true,
     connection: parseConnectionHint(input.connection),
     vaultId:
       typeof input.vaultId === "string" && VAULT_ID_PATTERN.test(input.vaultId)
@@ -77,6 +85,7 @@ export function parsePluginSettings(raw: unknown): PluginSettings {
 export function serializePluginSettings(settings: PluginSettings): PluginSettings {
   return {
     apiEnvironment: settings.apiEnvironment,
+    devMode: settings.devMode,
     connection:
       settings.connection === null
         ? null

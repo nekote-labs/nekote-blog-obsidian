@@ -19,6 +19,14 @@
 
 Obsidianアプリからの実機確認はstagingで行う。プラグイン設定の「詳細 → 接続先」で切り替える。接続中は変更できないので接続前に選ぶ。
 
+「詳細 → 接続先」は開発者専用UIで、vaultの`.obsidian/plugins/nekote-blog/data.json`へ`"devMode": true`を手書きした端末にだけ表示される（`src/storage/plugin-data.ts`の`devMode`。UIからは変更できず、配布ユーザーには見せない）。
+
+## 検証用vault
+
+`/Users/ryo/Library/Mobile Documents/iCloud~md~obsidian/Documents/Nekote`
+
+ノートの編集も実機確認もこのvaultで行う。iCloud同期下にあるためパスにスペースが入る。**シェルで渡すときは必ずクォートする**。
+
 ## vaultへの反映（`OBSIDIAN_PLUGIN_DIR`）
 
 vaultで動かすには`.obsidian/plugins/nekote-blog/`へ`main.js`・`manifest.json`・`styles.css`を置く。

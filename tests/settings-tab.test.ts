@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/** mockのSettingが受け取ったsetName()を記録する（描画の有無の検証用） */
+const renderedNames = vi.hoisted(() => ({ list: [] as string[] }));
 
 vi.mock("obsidian", () => {
   class PluginSettingTab {
@@ -15,7 +18,8 @@ vi.mock("obsidian", () => {
   }
 
   class Setting {
-    setName() {
+    setName(name: string) {
+      renderedNames.list.push(name);
       return this;
     }
     setHeading() {
@@ -61,7 +65,7 @@ type ConnectInput = {
 
 type ConnectFn = (input: ConnectInput) => Promise<DeviceAuthorizationResult>;
 
-function createTab(connect: ConnectFn): NekoteBlogSettingTab {
+function createTab(connect: ConnectFn, settings: { devMode?: boolean } = {}): NekoteBlogSettingTab {
   const plugin = {
     defaultDeviceName: () => "Obsidian (Desktop)",
     openExternal: vi.fn(),
@@ -71,10 +75,12 @@ function createTab(connect: ConnectFn): NekoteBlogSettingTab {
     },
     settings: {
       apiEnvironment: "production",
+      devMode: false,
       connection: null,
       vaultId: null,
       contentRoot: null,
       lastPush: null,
+      ...settings,
     },
     folderPaths: () => [],
     publish: vi.fn(),
@@ -85,6 +91,30 @@ function createTab(connect: ConnectFn): NekoteBlogSettingTab {
 function startAuthorization(tab: NekoteBlogSettingTab): Promise<void> {
   return (tab as unknown as { startAuthorization: () => Promise<void> }).startAuthorization();
 }
+
+function renderAdvanced(tab: NekoteBlogSettingTab): void {
+  (tab as unknown as { renderAdvanced: (container: HTMLElement) => void }).renderAdvanced(
+    {} as HTMLElement,
+  );
+}
+
+describe("NekoteBlogSettingTabの詳細設定", () => {
+  beforeEach(() => {
+    renderedNames.list.length = 0;
+  });
+
+  it("devModeが無いと詳細セクションを丸ごと描画しない", () => {
+    renderAdvanced(createTab(vi.fn<ConnectFn>()));
+
+    expect(renderedNames.list).toEqual([]);
+  });
+
+  it("devModeが有効なときだけ接続先を描画する", () => {
+    renderAdvanced(createTab(vi.fn<ConnectFn>(), { devMode: true }));
+
+    expect(renderedNames.list).toEqual(["詳細", "接続先"]);
+  });
+});
 
 describe("NekoteBlogSettingTabの認可開始", () => {
   it("連続で開始してもconnectは1回だけ走る", async () => {
