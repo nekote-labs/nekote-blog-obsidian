@@ -167,6 +167,8 @@ const validConnection = {
   device: { id: "device-1", name: "MacBook Pro" },
 };
 
+const KNOWN_SETTING_KEYS = ["apiEnvironment", "connection", "contentRoot", "lastPush", "vaultId"];
+
 describe("parsePluginSettings()", () => {
   // it.eachは配列のcaseをそのまま1引数として渡すが、テスト名の展開だけ中身を使うので
   // 配列を混ぜるcaseはlabelを付ける
@@ -178,7 +180,7 @@ describe("parsePluginSettings()", () => {
     { label: "数値", raw: 1 },
     { label: "真偽値", raw: true },
   ])("オブジェクトでない入力（$label）は既定値になる", ({ raw }) => {
-    expect(parsePluginSettings(raw)).toEqual({ apiEnvironment: "production", connection: null });
+    expect(parsePluginSettings(raw)).toEqual(DEFAULT_SETTINGS);
   });
 
   it("既定値はDEFAULT_SETTINGSと同じ内容で、参照は共有しない", () => {
@@ -192,9 +194,46 @@ describe("parsePluginSettings()", () => {
     const settings = parsePluginSettings({
       apiEnvironment: "staging",
       connection: validConnection,
+      vaultId: "vault-abcdefgh",
+      contentRoot: "blog",
+      lastPush: { revision: 3, manifestHash: "a".repeat(64), syncedAt: "2026-09-01T00:00:00.000Z" },
     });
 
-    expect(settings).toEqual({ apiEnvironment: "staging", connection: validConnection });
+    expect(settings).toEqual({
+      apiEnvironment: "staging",
+      connection: validConnection,
+      vaultId: "vault-abcdefgh",
+      contentRoot: "blog",
+      lastPush: { revision: 3, manifestHash: "a".repeat(64), syncedAt: "2026-09-01T00:00:00.000Z" },
+    });
+  });
+
+  it.each(["short", "vault id with space", "a".repeat(65), "vault/id", 1, null, {}])(
+    "vault IDの形が違う値（%o）はnullになる",
+    (vaultId) => {
+      expect(parsePluginSettings({ vaultId }).vaultId).toBeNull();
+    },
+  );
+
+  it("vaultルートを表す空文字のコンテンツルートは読める", () => {
+    expect(parsePluginSettings({ contentRoot: "" }).contentRoot).toBe("");
+  });
+
+  it.each(["/blog", "blog/", "../blog", "blog/../posts", 1, null])(
+    "正規形でないコンテンツルート（%o）はnull（未選択）になる",
+    (contentRoot) => {
+      expect(parsePluginSettings({ contentRoot }).contentRoot).toBeNull();
+    },
+  );
+
+  it.each([
+    { label: "revisionが負", lastPush: { revision: -1, manifestHash: "a", syncedAt: "x" } },
+    { label: "revisionが小数", lastPush: { revision: 1.5, manifestHash: "a", syncedAt: "x" } },
+    { label: "manifestHashが無い", lastPush: { revision: 1, syncedAt: "x" } },
+    { label: "syncedAtが無い", lastPush: { revision: 1, manifestHash: "a" } },
+    { label: "配列", lastPush: [] },
+  ])("壊れたlastPush（$label）はnullになる", ({ lastPush }) => {
+    expect(parsePluginSettings({ lastPush }).lastPush).toBeNull();
   });
 
   it.each(["local", "PRODUCTION", "", "https://api.nekote.blog/v1/obsidian", 1, null, {}])(
@@ -247,7 +286,7 @@ describe("parsePluginSettings()", () => {
 
     const settings = parsePluginSettings(raw);
 
-    expect(Object.keys(settings).sort()).toEqual(["apiEnvironment", "connection"]);
+    expect(Object.keys(settings).sort()).toEqual(KNOWN_SETTING_KEYS);
     expect(JSON.stringify(settings)).not.toContain("LEAKED_SECRET");
     expect(JSON.stringify(serializePluginSettings(settings))).not.toContain("LEAKED_SECRET");
   });
@@ -255,25 +294,26 @@ describe("parsePluginSettings()", () => {
 
 describe("serializePluginSettings()", () => {
   it("既知のキーだけを持つ", () => {
-    const settings: PluginSettings = { apiEnvironment: "staging", connection: validConnection };
+    const settings: PluginSettings = {
+      ...DEFAULT_SETTINGS,
+      apiEnvironment: "staging",
+      connection: validConnection,
+    };
 
     const serialized = serializePluginSettings(settings);
 
-    expect(Object.keys(serialized).sort()).toEqual(["apiEnvironment", "connection"]);
+    expect(Object.keys(serialized).sort()).toEqual(KNOWN_SETTING_KEYS);
     expect(Object.keys(serialized.connection ?? {}).sort()).toEqual(["blog", "device"]);
     expect(serialized).toEqual(settings);
   });
 
   it("connectionがnullでもそのまま保存できる", () => {
-    expect(serializePluginSettings({ apiEnvironment: "production", connection: null })).toEqual({
-      apiEnvironment: "production",
-      connection: null,
-    });
+    expect(serializePluginSettings({ ...DEFAULT_SETTINGS })).toEqual(DEFAULT_SETTINGS);
   });
 
   it("ネストしたオブジェクトの参照を元と共有しない", () => {
     const settings: PluginSettings = {
-      apiEnvironment: "production",
+      ...DEFAULT_SETTINGS,
       connection: {
         blog: { ...validConnection.blog },
         device: { ...validConnection.device },

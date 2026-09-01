@@ -5,6 +5,7 @@
 // ここにある接続情報は表示と競合検出のためのhintで、正は`GET /connection`。
 import { DEFAULT_API_ENVIRONMENT, isApiEnvironment, type ApiEnvironment } from "../api/endpoints";
 import type { ConnectionBlog, ConnectionDevice } from "../protocol/types";
+import { isCanonicalContentRoot } from "../vault/paths";
 
 /** 承認済みの接続先（表示用のhint。秘密は含まない） */
 export interface ConnectionHint {
@@ -12,15 +13,37 @@ export interface ConnectionHint {
   device: ConnectionDevice;
 }
 
+/** 最後に適用まで進んだPush。表示と競合検出のhintで、正は`GET /connection` */
+export interface LastPushHint {
+  revision: number;
+  manifestHash: string;
+  /** 反映が終わった時刻（ISO） */
+  syncedAt: string;
+}
+
 export interface PluginSettings {
   apiEnvironment: ApiEnvironment;
   connection: ConnectionHint | null;
+  /**
+   * このvaultの安定ID。サーバーは有効なObsidian sourceについて一意にし、
+   * **同じIDを別ブログへ接続させない**。vaultの所有権を証明する秘密ではない
+   */
+  vaultId: string | null;
+  /** コンテンツルート（vaultルート相対。vaultルート自体は空文字）。未選択はnull */
+  contentRoot: string | null;
+  lastPush: LastPushHint | null;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
   apiEnvironment: DEFAULT_API_ENVIRONMENT,
   connection: null,
+  vaultId: null,
+  contentRoot: null,
+  lastPush: null,
 };
+
+/** サーバーが受け付けるvault IDの形（`openapi.yaml`の`vaultId`） */
+const VAULT_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 /**
  * `loadData()`の戻り値を設定へ落とす。
@@ -38,6 +61,15 @@ export function parsePluginSettings(raw: unknown): PluginSettings {
       ? input.apiEnvironment
       : DEFAULT_API_ENVIRONMENT,
     connection: parseConnectionHint(input.connection),
+    vaultId:
+      typeof input.vaultId === "string" && VAULT_ID_PATTERN.test(input.vaultId)
+        ? input.vaultId
+        : null,
+    contentRoot:
+      typeof input.contentRoot === "string" && isCanonicalContentRoot(input.contentRoot)
+        ? input.contentRoot
+        : null,
+    lastPush: parseLastPush(input.lastPush),
   };
 }
 
@@ -52,7 +84,18 @@ export function serializePluginSettings(settings: PluginSettings): PluginSetting
             blog: { ...settings.connection.blog },
             device: { ...settings.connection.device },
           },
+    vaultId: settings.vaultId,
+    contentRoot: settings.contentRoot,
+    lastPush: settings.lastPush === null ? null : { ...settings.lastPush },
   };
+}
+
+function parseLastPush(value: unknown): LastPushHint | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const { revision, manifestHash, syncedAt } = value as Record<string, unknown>;
+  if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 0) return null;
+  if (typeof manifestHash !== "string" || typeof syncedAt !== "string") return null;
+  return { revision, manifestHash, syncedAt };
 }
 
 function parseConnectionHint(value: unknown): ConnectionHint | null {

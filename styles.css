@@ -17,3 +17,25 @@
   background-color: var(--background-secondary);
   user-select: text;
 }
+
+/* 確認・結果モーダルのpath一覧。長いpathでモーダルが横に伸びないよう折り返す */
+.nekote-blog-list {
+  margin: 0 0 var(--size-4-2);
+  padding-left: var(--size-4-4);
+}
+
+.nekote-blog-list li {
+  overflow-wrap: anywhere;
+}
+
+.nekote-blog-section {
+  margin-bottom: var(--size-4-2);
+}
+
+.nekote-blog-section > summary {
+  cursor: pointer;
+}
+
+.nekote-blog-issue-error {
+  color: var(--text-error);
+}

@@ -1,0 +1,576 @@
+import { describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
+import type { NekoteApiClient } from "../src/api/client";
+import { API_ERROR_STATUS, NekoteApiError, type ApiErrorCode } from "../src/protocol/errors";
+import type {
+  AppliedManifestResponse,
+  BlobUploadResponse,
+  ConnectionResponse,
+  ConnectionSource,
+  PushBeginResponse,
+  PushConfirmResponse,
+  PushFinalizeResponse,
+  PushState,
+  PushStatusResponse,
+  SyncManifest,
+} from "../src/protocol/types";
+import { DEFAULT_SETTINGS, type PluginSettings } from "../src/storage/plugin-data";
+import { SecretStore, type SecretStorageLike } from "../src/storage/secrets";
+import {
+  publish,
+  type ConfirmRequest,
+  type PublishDeps,
+  type PublishReport,
+} from "../src/sync/publish";
+import type { VaultFileRef, VaultGateway } from "../src/vault/gateway";
+import { extensionOf } from "../src/vault/paths";
+
+const PUSH_ID = "018f2c34-5a6b-7c8d-9e0f-1a2b3c4d5e6f";
+const VAULT_ID = "vault-8f3a2b1c9d0e";
+const CREATED_VAULT_ID = "vault-created-0001";
+const STATUS_MANIFEST_HASH = "5d41402abc4b2a76b9719d911017c592a1b2c3d4e5f60718293a4b5c6d7e8f90";
+/** `deps.now()`が返す固定時刻。`lastPush.syncedAt`の確認に使う */
+const NOW = 1_700_000_000_000;
+
+const OBSIDIAN_SOURCE: ConnectionSource = {
+  kind: "obsidian",
+  contentSourceId: "9a8b7c6d-5e4f-3021-8877-665544332211",
+  vaultId: VAULT_ID,
+  contentRoot: "blog",
+  appliedRevision: 12,
+  manifestHash: "8b1a9953c4611296a827abf8c47804d7f0d2e6a0f0b4c9d3e2f1a0b9c8d7e6f5",
+};
+
+function apiError(code: ApiErrorCode): NekoteApiError {
+  return new NekoteApiError({
+    code,
+    status: API_ERROR_STATUS[code],
+    message: `サーバーが${code}を返しました。`,
+  });
+}
+
+// --- 偽のvault ---------------------------------------------------------------
+
+interface FakeFile {
+  path: string;
+  /** 省略すると読み取り失敗（クラウド同期が終わっていないファイルの再現） */
+  text?: string;
+}
+
+/** コンテンツルート配下に公開対象のノートを2件だけ置いた小さなvault */
+function notesUnder(contentRoot: string): FakeFile[] {
+  const prefix = contentRoot === "" ? "" : `${contentRoot}/`;
+  return [
+    { path: `${prefix}posts/hello.md`, text: "---\ntitle: こんにちは\n---\n\n本文です。\n" },
+    {
+      path: `${prefix}posts/draft.md`,
+      text: "---\ntitle: 下書き\ndraft: true\n---\n\nまだ書きかけです。\n",
+    },
+  ];
+}
+
+function createVault(files: readonly FakeFile[], calls: string[]): VaultGateway {
+  const encoder = new TextEncoder();
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const refs: VaultFileRef[] = files.map((file) => ({
+    path: file.path,
+    vaultPath: file.path,
+    extension: extensionOf(file.path),
+    size: file.text === undefined ? 128 : encoder.encode(file.text).byteLength,
+  }));
+
+  return {
+    listFiles: () => {
+      calls.push("listFiles");
+      return refs;
+    },
+    listFolderPaths: () => [],
+    readText: async (file) => {
+      calls.push(`readText:${file.path}`);
+      const text = byPath.get(file.path)?.text;
+      if (text === undefined) throw new Error(`読み取りに失敗しました: ${file.path}`);
+      return text;
+    },
+    readBinary: async (file) => {
+      calls.push(`readBinary:${file.path}`);
+      const text = byPath.get(file.path)?.text;
+      if (text === undefined) throw new Error(`読み取りに失敗しました: ${file.path}`);
+      return encoder.encode(text).slice().buffer;
+    },
+    resolveLinkpath: () => null,
+  };
+}
+
+// --- 偽の保管 -----------------------------------------------------------------
+
+/** `SecretStorage`には削除APIが無いので、消すのは空文字の書き込み */
+class FakeSecretStorage implements SecretStorageLike {
+  readonly values = new Map<string, string>();
+  readonly writes: { id: string; secret: string }[] = [];
+
+  getSecret(id: string): string | null {
+    return this.values.get(id) ?? null;
+  }
+
+  setSecret(id: string, secret: string): void {
+    this.values.set(id, secret);
+    this.writes.push({ id, secret });
+  }
+}
+
+// --- 応答の見本 ---------------------------------------------------------------
+
+function beginResponse(overrides: Partial<PushBeginResponse> = {}): PushBeginResponse {
+  return {
+    protocolVersion: 1,
+    pushId: PUSH_ID,
+    state: "preflight",
+    baseRevision: 12,
+    appliedRevision: 12,
+    manifestHash: STATUS_MANIFEST_HASH,
+    preflight: {
+      addedCount: 2,
+      updatedCount: 0,
+      deletedCount: 0,
+      unchangedCount: 0,
+      missingBlobCount: 0,
+      missingBlobBytes: 0,
+      initialConnect: false,
+      confirmationReasons: [],
+    },
+    missingBlobs: [],
+    confirmationRequired: false,
+    expiresAt: "2026-09-01T00:30:00.000Z",
+    ...overrides,
+  };
+}
+
+function enqueued(): PushFinalizeResponse {
+  return { pushId: PUSH_ID, state: "enqueued", jobId: "job-1", targetRevision: 13 };
+}
+
+function statusResponse(
+  state: PushState,
+  overrides: Partial<PushStatusResponse> = {},
+): PushStatusResponse {
+  return {
+    pushId: PUSH_ID,
+    state,
+    baseRevision: 12,
+    targetRevision: state === "succeeded" ? 13 : null,
+    appliedRevision: state === "succeeded" ? 13 : 12,
+    manifestHash: STATUS_MANIFEST_HASH,
+    counts: { published: 1, draft: 1 },
+    expiresAt: "2026-09-01T00:30:00.000Z",
+    ...overrides,
+  };
+}
+
+function appliedManifest(
+  overrides: Partial<AppliedManifestResponse> = {},
+): AppliedManifestResponse {
+  return {
+    protocolVersion: 1,
+    appliedRevision: 20,
+    manifestHash: "0a1b2c3d4e5f60718293a4b5c6d7e8f900a1b2c3d4e5f60718293a4b5c6d7e8f",
+    contentRoot: "blog",
+    entries: [
+      { path: "posts/hello.md", sha256: "server-side-hash-1", state: "published" },
+      { path: "posts/gone.md", sha256: "server-side-hash-2", state: "published" },
+    ],
+    ...overrides,
+  };
+}
+
+function take<T>(queue: (T | Error)[], name: string): T {
+  const next = queue.shift();
+  if (next === undefined) throw new Error(`${name}が想定より多く呼ばれました。`);
+  if (next instanceof Error) throw next;
+  return next;
+}
+
+// --- ハーネス -----------------------------------------------------------------
+
+interface PublishOptions {
+  contentRoot?: string | null;
+  vaultId?: string | null;
+  lastPush?: PluginSettings["lastPush"];
+  pendingPushId?: string;
+  source?: ConnectionSource;
+  applied?: AppliedManifestResponse;
+  begin?: (PushBeginResponse | Error)[];
+  finalize?: (PushFinalizeResponse | Error)[];
+  status?: (PushStatusResponse | Error)[];
+  files?: FakeFile[];
+  /** 確認ダイアログの答え。既定はすべて承諾 */
+  answer?: (request: ConfirmRequest) => boolean;
+}
+
+interface Harness {
+  deps: PublishDeps;
+  settings: PluginSettings;
+  storage: FakeSecretStorage;
+  secrets: SecretStore;
+  /** APIクライアントの呼び出し順 */
+  calls: string[];
+  vaultCalls: string[];
+  confirms: ConfirmRequest[];
+  notices: string[];
+  reports: PublishReport[];
+  begins: SyncManifest[];
+  patches: Partial<PluginSettings>[];
+}
+
+function createHarness(options: PublishOptions = {}): Harness {
+  const settings: PluginSettings = {
+    ...DEFAULT_SETTINGS,
+    contentRoot: options.contentRoot === undefined ? "blog" : options.contentRoot,
+    vaultId: options.vaultId === undefined ? VAULT_ID : options.vaultId,
+    lastPush: options.lastPush ?? null,
+  };
+
+  const storage = new FakeSecretStorage();
+  const secrets = new SecretStore(storage);
+  if (options.pendingPushId !== undefined) secrets.setPendingPushId(options.pendingPushId);
+  // 事前に置いたpendingPushIdは前提であって、publishが書いたものではない
+  storage.writes.length = 0;
+
+  const calls: string[] = [];
+  const vaultCalls: string[] = [];
+  const confirms: ConfirmRequest[] = [];
+  const notices: string[] = [];
+  const reports: PublishReport[] = [];
+  const begins: SyncManifest[] = [];
+  const patches: Partial<PluginSettings>[] = [];
+
+  const beginQueue = [...(options.begin ?? [beginResponse()])];
+  const finalizeQueue = [...(options.finalize ?? [enqueued()])];
+  const statusQueue = [...(options.status ?? [statusResponse("succeeded")])];
+
+  const client = {
+    getConnection: async (): Promise<ConnectionResponse> => {
+      calls.push("getConnection");
+      return {
+        protocolVersion: 1,
+        blog: { id: "blog-1", title: "ねこのブログ", subdomain: "neko" },
+        device: { id: "device-1", name: "MacBook Pro" },
+        source: options.source ?? OBSIDIAN_SOURCE,
+      };
+    },
+    getAppliedManifest: async (): Promise<AppliedManifestResponse> => {
+      calls.push("getAppliedManifest");
+      return options.applied ?? appliedManifest();
+    },
+    beginPush: async (manifest: SyncManifest): Promise<PushBeginResponse> => {
+      calls.push("beginPush");
+      begins.push(manifest);
+      return take(beginQueue, "beginPush");
+    },
+    confirmPush: async (input: {
+      pushId: string;
+      manifestHash: string;
+    }): Promise<PushConfirmResponse> => {
+      calls.push("confirmPush");
+      return {
+        pushId: input.pushId,
+        state: "confirmed",
+        reservedBlobCount: 0,
+        reservedBlobBytes: 0,
+        expiresAt: "2026-09-01T00:30:00.000Z",
+      };
+    },
+    uploadBlob: async (input: {
+      pushId: string;
+      sha256: string;
+      bytes: ArrayBuffer;
+    }): Promise<BlobUploadResponse> => {
+      calls.push(`uploadBlob:${input.sha256}`);
+      return { sha256: input.sha256, bytes: input.bytes.byteLength, blobGen: 1, state: "live" };
+    },
+    finalizePush: async (): Promise<PushFinalizeResponse> => {
+      calls.push("finalizePush");
+      return take(finalizeQueue, "finalizePush");
+    },
+    getPushStatus: async (pushId: string): Promise<PushStatusResponse> => {
+      calls.push(`getPushStatus:${pushId}`);
+      return take(statusQueue, "getPushStatus");
+    },
+  };
+
+  const deps: PublishDeps = {
+    client: client as unknown as NekoteApiClient,
+    secrets,
+    vault: createVault(options.files ?? notesUnder("blog"), vaultCalls),
+    parseYaml,
+    ui: {
+      confirm: async (request) => {
+        confirms.push(request);
+        return options.answer?.(request) ?? true;
+      },
+      progress: () => {},
+      notice: (message) => notices.push(message),
+      report: (report) => reports.push(report),
+    },
+    settings: () => settings,
+    updateSettings: async (patch) => {
+      patches.push(patch);
+      Object.assign(settings, patch);
+    },
+    sleep: async () => {},
+    now: () => NOW,
+    newVaultId: () => CREATED_VAULT_ID,
+    signal: new AbortController().signal,
+  };
+
+  return {
+    deps,
+    settings,
+    storage,
+    secrets,
+    calls,
+    vaultCalls,
+    confirms,
+    notices,
+    reports,
+    begins,
+    patches,
+  };
+}
+
+function titles(harness: Harness): string[] {
+  return harness.confirms.map((request) => request.title);
+}
+
+describe("publish: 前提の確認", () => {
+  it("コンテンツルートが未選択なら通知だけで何も送らない", async () => {
+    const harness = createHarness({ contentRoot: null });
+
+    await publish(harness.deps);
+
+    expect(harness.notices).toEqual(["先に設定画面でコンテンツルートを選んでください。"]);
+    expect(harness.calls).toEqual([]);
+    expect(harness.vaultCalls).toEqual([]);
+  });
+});
+
+describe("publish: vault IDの突き合わせ", () => {
+  it("サーバーが未接続でローカルにvault IDが無ければ新しく作って保存する", async () => {
+    const harness = createHarness({ source: { kind: "none" }, vaultId: null });
+
+    await publish(harness.deps);
+
+    expect(harness.settings.vaultId).toBe(CREATED_VAULT_ID);
+    expect(harness.confirms).toEqual([]);
+    expect(harness.begins[0]?.vaultId).toBe(CREATED_VAULT_ID);
+    // 初回接続なのでbaseRevisionは0から始まる
+    expect(harness.begins[0]?.baseRevision).toBe(0);
+  });
+
+  it("サーバーがObsidian接続済みでローカルにvault IDが無ければ、確認してから保存する", async () => {
+    const harness = createHarness({ vaultId: null });
+
+    await publish(harness.deps);
+
+    expect(titles(harness)).toEqual(["接続済みのvaultとして扱いますか？"]);
+    expect(harness.settings.vaultId).toBe(VAULT_ID);
+    expect(harness.begins[0]?.vaultId).toBe(VAULT_ID);
+  });
+
+  it("その確認を断ると何も送らず、vault IDも保存しない", async () => {
+    const harness = createHarness({ vaultId: null, answer: () => false });
+
+    await publish(harness.deps);
+
+    expect(harness.settings.vaultId).toBeNull();
+    expect(harness.calls).toEqual(["getConnection"]);
+    expect(harness.vaultCalls).toEqual([]);
+  });
+
+  it("サーバーと違うvault IDを持っているときは、置き換えの確認を出す", async () => {
+    const harness = createHarness({ vaultId: "vault-local-0001" });
+
+    await publish(harness.deps);
+
+    expect(titles(harness)).toEqual(["接続されているvaultと違います"]);
+    expect(harness.confirms[0]?.danger).toBe(true);
+    // 承諾してもローカルのvault IDのまま送る（サーバー側が初回接続として作り直す）
+    expect(harness.settings.vaultId).toBe("vault-local-0001");
+    expect(harness.begins[0]?.vaultId).toBe("vault-local-0001");
+  });
+
+  it("置き換えの確認を断ると何も送らない", async () => {
+    const harness = createHarness({ vaultId: "vault-local-0001", answer: () => false });
+
+    await publish(harness.deps);
+
+    expect(harness.settings.vaultId).toBe("vault-local-0001");
+    expect(harness.calls).toEqual(["getConnection"]);
+    expect(harness.vaultCalls).toEqual([]);
+  });
+});
+
+describe("publish: コンテンツルートとrevisionの確認", () => {
+  it("サーバーのコンテンツルートと違うときは確認を出し、断ると何も送らない", async () => {
+    const harness = createHarness({
+      contentRoot: "notes",
+      files: notesUnder("notes"),
+      answer: () => false,
+    });
+
+    await publish(harness.deps);
+
+    expect(titles(harness)).toEqual(["コンテンツルートを変更します"]);
+    expect(harness.calls).toEqual(["getConnection"]);
+    expect(harness.reports).toEqual([]);
+  });
+
+  it("ローカルの記録とサーバーのrevisionが違うときは、差分を見せて確認する", async () => {
+    const harness = createHarness({
+      lastPush: { revision: 11, manifestHash: "local-hash", syncedAt: "2026-08-31T00:00:00.000Z" },
+      answer: () => false,
+    });
+
+    await publish(harness.deps);
+
+    expect(harness.calls).toEqual(["getConnection", "getAppliedManifest"]);
+    expect(titles(harness)).toEqual(["他の端末から反映されています"]);
+    expect(harness.confirms[0]?.sections).toEqual([
+      { title: "追加 1件", items: ["posts/draft.md"] },
+      { title: "更新 1件", items: ["posts/hello.md"] },
+      { title: "削除 1件", items: ["posts/gone.md"] },
+    ]);
+  });
+
+  it("revisionが一致していれば確認せずに送る", async () => {
+    const harness = createHarness({
+      lastPush: { revision: 12, manifestHash: "local-hash", syncedAt: "2026-08-31T00:00:00.000Z" },
+    });
+
+    await publish(harness.deps);
+
+    expect(harness.confirms).toEqual([]);
+    expect(harness.calls).not.toContain("getAppliedManifest");
+  });
+});
+
+describe("publish: revision_conflict", () => {
+  it("承諾したときだけサーバーの最新revisionをbaseにして送り直す", async () => {
+    const harness = createHarness({ begin: [apiError("revision_conflict"), beginResponse()] });
+
+    await publish(harness.deps);
+
+    expect(titles(harness)).toEqual(["他の反映が先に適用されています"]);
+    expect(harness.begins.map((manifest) => manifest.baseRevision)).toEqual([12, 20]);
+    expect(harness.reports[0]?.outcome).toBe("applied");
+  });
+
+  it("断ると何も適用せず、取り消しとして知らせる", async () => {
+    const harness = createHarness({
+      begin: [apiError("revision_conflict")],
+      answer: () => false,
+    });
+
+    await publish(harness.deps);
+
+    expect(harness.notices).toEqual(["反映を取り消しました。"]);
+    expect(harness.calls).not.toContain("finalizePush");
+    expect(harness.settings.lastPush).toBeNull();
+  });
+});
+
+describe("publish: 反映の結果", () => {
+  it("成功するとlastPushを保存し、pendingPushIdを消す", async () => {
+    const harness = createHarness();
+
+    await publish(harness.deps);
+
+    expect(harness.settings.lastPush).toEqual({
+      revision: 13,
+      manifestHash: STATUS_MANIFEST_HASH,
+      syncedAt: new Date(NOW).toISOString(),
+    });
+    expect(harness.secrets.getPendingPushId()).toBeNull();
+    // 送信前にpushIdを控え、適用が確定してから消す
+    expect(harness.storage.writes.map((write) => write.secret)).toEqual([PUSH_ID, ""]);
+    expect(harness.reports[0]).toMatchObject({
+      outcome: "applied",
+      headline: "反映しました（revision 13）",
+    });
+  });
+
+  it("失敗するとlastPushを更新しない", async () => {
+    const harness = createHarness({ status: [statusResponse("failed")] });
+
+    await publish(harness.deps);
+
+    expect(harness.settings.lastPush).toBeNull();
+    expect(harness.patches.some((patch) => "lastPush" in patch)).toBe(false);
+    expect(harness.reports[0]).toMatchObject({
+      outcome: "failed",
+      headline: "反映できませんでした",
+    });
+  });
+});
+
+describe("publish: 中断したPushの再開", () => {
+  it("終端していればその結果を見せて、走査しない", async () => {
+    const harness = createHarness({
+      pendingPushId: "push-previous",
+      status: [statusResponse("succeeded")],
+    });
+
+    await publish(harness.deps);
+
+    expect(harness.calls).toEqual(["getPushStatus:push-previous"]);
+    expect(harness.vaultCalls).toEqual([]);
+    expect(harness.reports[0]?.outcome).toBe("applied");
+  });
+
+  it("まだ終端していなければpendingPushIdを捨てて、走査からやり直す", async () => {
+    const harness = createHarness({
+      pendingPushId: "push-previous",
+      status: [statusResponse("verifying"), statusResponse("succeeded")],
+    });
+
+    await publish(harness.deps);
+
+    expect(harness.calls).toEqual([
+      "getPushStatus:push-previous",
+      "getConnection",
+      "beginPush",
+      "confirmPush",
+      "finalizePush",
+      `getPushStatus:${PUSH_ID}`,
+    ]);
+    expect(harness.vaultCalls).toContain("listFiles");
+  });
+});
+
+describe("publish: 失敗の見せ方", () => {
+  it("走査が中止されたら内容をreportで見せて、何も送らない", async () => {
+    const harness = createHarness({
+      files: [{ path: "blog/posts/hello.md" }, ...notesUnder("blog").slice(1)],
+    });
+
+    await publish(harness.deps);
+
+    expect(harness.calls).toEqual(["getConnection"]);
+    expect(harness.reports[0]).toMatchObject({
+      outcome: "failed",
+      headline: "反映を中止しました",
+    });
+    expect(harness.reports[0]?.paragraphs[0]).toContain("ファイルを読み取れませんでした");
+  });
+
+  it("push_in_progressは分かりやすい通知にする", async () => {
+    const harness = createHarness({ begin: [apiError("push_in_progress")] });
+
+    await publish(harness.deps);
+
+    expect(harness.notices).toEqual([
+      "前の反映がサーバー側で処理中です。取り消した直後の場合も少しのあいだ残るので、" +
+        "しばらく待ってからもう一度実行してください。",
+    ]);
+    expect(harness.reports).toEqual([]);
+  });
+});
