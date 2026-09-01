@@ -73,6 +73,13 @@ export default class NekoteBlogPlugin extends Plugin {
 
     this.addSettingTab(new NekoteBlogSettingTab(this.app, this));
     this.addCommand({
+      id: "open-settings",
+      name: "設定を開く",
+      callback: () => {
+        this.openSettings();
+      },
+    });
+    this.addCommand({
       id: "publish",
       name: "Nekote Blogへ反映",
       callback: () => {
