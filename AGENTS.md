@@ -21,15 +21,17 @@ Obsidianアプリからの実機確認はstagingで行う。プラグイン設�
 
 ## vaultへの反映（`OBSIDIAN_PLUGIN_DIR`）
 
-vaultで動かすには`.obsidian/plugins/nekote-blog/`へ`main.js`・`manifest.json`・`styles.css`を置く。毎回コピーせずに済ませるには、リポジトリ直下の`.env`（gitignore対象）へ複製先を書く。
+vaultで動かすには`.obsidian/plugins/nekote-blog/`へ`main.js`・`manifest.json`・`styles.css`を置く。
+iCloudはシンボリックリンクを同期しないため、物理コピーする。
 
-```sh
-OBSIDIAN_PLUGIN_DIR=/path/to/vault/.obsidian/plugins/nekote-blog
-```
+`pnpm run build`がビルドに続けて`scripts/install-to-vault.js`で3ファイルを複製するようにしている。
 
-`pnpm run build`がビルドに続けて`scripts/install-to-vault.js`で3ファイルを複製する。**未設定なら何もしない**。CIとReleaseワークフローも同じ`build`を通るため、ここで失敗させてはいけない。
+リポジトリ直下の`.env`（gitignore対象）の｀OBSIDIAN_PLUGIN_DIR｀に複製先を書いています。  
+**ここが未設定ならコピーはしない**。CIとReleaseワークフローも同じ`build`を通るため、ここで失敗させてはいけない。
 
-複製後はObsidianを再読み込みする（`Cmd+R`）。iOS/Androidの実機で試すときはvaultの同期経由でこのフォルダを届ける（iCloudはシンボリックリンクを同期しない）。
+複製後はObsidianを再読み込みする（`Cmd+R`）。
+iOS/Androidの実機で試すときはvaultの同期経由でこのフォルダを届ける
+
 
 ## モバイル対応の制約
 
