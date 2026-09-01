@@ -149,6 +149,7 @@ export default class NekoteBlogPlugin extends Plugin {
         }),
       );
       this.syncNoteActions();
+      this.registerTitlePropertyType();
     });
   }
 
@@ -413,6 +414,30 @@ export default class NekoteBlogPlugin extends Plugin {
         }),
     );
     menu.showAtMouseEvent(evt);
+  }
+
+  /**
+   * `title`へtext型を登録し、プロパティ名の入力候補へ常に出す。
+   * frontmatterテンプレートへ`title`は入れない方針のため、登録しないと候補に一切出ない
+   * （Obsidianは「vault内で使用中」か「型登録済み」のプロパティだけを候補にする）。
+   * 公開APIが無く内部API（`app.metadataTypeManager`）頼みなので、形が変わったら何もしない。
+   * ユーザーが型を割り当て済みなら上書きしない
+   */
+  private registerTitlePropertyType(): void {
+    const internal = (
+      this.app as unknown as {
+        metadataTypeManager?: {
+          getAssignedWidget(name: string): string | null;
+          setType(name: string, widget: string): Promise<void>;
+        };
+      }
+    ).metadataTypeManager;
+    if (typeof internal?.getAssignedWidget !== "function" || typeof internal.setType !== "function")
+      return;
+    if (internal.getAssignedWidget("title") !== null) return;
+    internal.setType("title", "text").catch((error: unknown) => {
+      console.error("Nekote Blog: titleプロパティの型登録に失敗しました", error);
+    });
   }
 
   /**
