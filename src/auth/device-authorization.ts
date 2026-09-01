@@ -68,6 +68,8 @@ export async function runDeviceAuthorization(
       deviceName: input.deviceName,
       codeChallenge,
     });
+    // 応答を待つ間に中止された場合、承認ページを開かずに終わる
+    if (input.signal.aborted) return { status: "cancelled" };
     secrets.setPendingAuthorization({ codeVerifier, deviceCode: authorization.deviceCode });
 
     const expiresAt = now() + authorization.expiresIn * 1000;
