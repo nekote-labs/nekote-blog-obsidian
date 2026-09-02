@@ -7,3 +7,11 @@ minimumReleaseAge: 4320
 # サプライチェーン攻撃対策: パッケージの信頼レベルが以前のリリースより低下した場合、インストールを失敗させる
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 525600 # 1年以上前に公開されたパッケージは除外
+
+# eslint-plugin-obsidianmdが`@eslint/json@0.14.0`のピン留め経由で引き込む。
+# 3.3.10まで付いていたprovenanceが3.3.12で欠けるためno-downgradeに当たるが、
+# tarballを展開して3.3.10と比較し、差分がEOFのエラー追加とプロトタイプ汚染対策の
+# 2箇所だけであること・依存もinstallスクリプトも無いことを確認済み。
+# 上流のprovenanceが戻ったらこの除外は消す。
+trustPolicyExclude:
+  - "@humanwhocodes/momoa@3.3.12"
