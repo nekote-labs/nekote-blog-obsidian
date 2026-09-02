@@ -9,9 +9,11 @@ import {
   Plugin,
   TFile,
   TFolder,
+  addIcon,
   debounce,
   getLanguage,
   parseYaml,
+  removeIcon,
   requestUrl,
   type TAbstractFile,
 } from "obsidian";
@@ -39,6 +41,7 @@ import {
 import { SecretStore } from "./storage/secrets";
 import { publish, type PublishScope } from "./sync/publish";
 import { FrontmatterImageModal, type FrontmatterImageKey } from "./ui/frontmatter-image-modal";
+import { NEKOTE_BLOG_ICON_ID, NEKOTE_BLOG_ICON_SVG } from "./ui/icons";
 import { PropertiesActions } from "./ui/properties-actions";
 import { createPublishUi } from "./ui/publish-ui";
 import { ObsidianVaultGateway } from "./vault/obsidian-gateway";
@@ -145,7 +148,8 @@ export default class NekoteBlogPlugin extends Plugin {
         }),
     });
 
-    this.addRibbonIcon("cat", "Nekote Blog", (evt) => {
+    addIcon(NEKOTE_BLOG_ICON_ID, NEKOTE_BLOG_ICON_SVG);
+    this.addRibbonIcon(NEKOTE_BLOG_ICON_ID, "Nekote Blog", (evt) => {
       this.showRibbonMenu(evt);
     });
     this.registerEvent(
@@ -193,6 +197,7 @@ export default class NekoteBlogPlugin extends Plugin {
   }
 
   onunload(): void {
+    removeIcon(NEKOTE_BLOG_ICON_ID);
     this.requestSettingTabUpdate.cancel();
     this.publishing?.abort();
     for (const action of this.noteActions.values()) action.remove();
@@ -412,7 +417,7 @@ export default class NekoteBlogPlugin extends Plugin {
       let action = this.noteActions.get(view);
       if (action === undefined) {
         // 1クリックで反映を始めない。このノートに効く操作を集めたメニューを開く
-        action = view.addAction("cat", "Nekote Blog", (evt) => {
+        action = view.addAction(NEKOTE_BLOG_ICON_ID, "Nekote Blog", (evt) => {
           this.showNoteMenu(evt, view);
         });
         this.noteActions.set(view, action);
