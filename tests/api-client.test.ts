@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NekoteApiClient } from "../src/api/client";
-import { API_BASE_URLS, apiBaseUrl, isApiEnvironment } from "../src/api/endpoints";
+import { API_BASE_URLS, apiBaseUrl, dashboardUrl, isApiEnvironment } from "../src/api/endpoints";
 import { headerValue, type HttpFetch, type HttpRequest, type HttpResponse } from "../src/api/http";
 import type {
   AppliedManifestResponse,
@@ -598,5 +598,10 @@ describe("isApiEnvironment() / apiBaseUrl()", () => {
     expect(apiBaseUrl("production")).toBe("https://api.nekote.blog/v1/obsidian");
     expect(apiBaseUrl("staging")).toBe("https://staging-api.nekote.blog/v1/obsidian");
     expect(apiBaseUrl("production").endsWith("/")).toBe(false);
+  });
+
+  it("環境名からダッシュボードの連携ページURLを返す", () => {
+    expect(dashboardUrl("production")).toBe("https://dash.nekote.blog/obsidian");
+    expect(dashboardUrl("staging")).toBe("https://staging.nekote.blog/obsidian");
   });
 });

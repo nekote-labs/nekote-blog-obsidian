@@ -8,6 +8,11 @@ export const API_BASE_URLS = {
 
 export type ApiEnvironment = keyof typeof API_BASE_URLS;
 
+export const DASHBOARD_URLS: Record<ApiEnvironment, string> = {
+  production: "https://dash.nekote.blog/obsidian",
+  staging: "https://staging.nekote.blog/obsidian",
+};
+
 export const DEFAULT_API_ENVIRONMENT: ApiEnvironment = "production";
 
 export function isApiEnvironment(value: unknown): value is ApiEnvironment {
@@ -16,4 +21,8 @@ export function isApiEnvironment(value: unknown): value is ApiEnvironment {
 
 export function apiBaseUrl(environment: ApiEnvironment): string {
   return API_BASE_URLS[environment];
+}
+
+export function dashboardUrl(environment: ApiEnvironment): string {
+  return DASHBOARD_URLS[environment];
 }

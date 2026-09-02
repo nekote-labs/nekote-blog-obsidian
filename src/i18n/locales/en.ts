@@ -11,6 +11,7 @@ function plural(count: number, singular: string, pluralForm: string): string {
 export const en = {
   /** コマンドパレットのコマンド名とメニュー項目 */
   commands: {
+    openDashboard: "Open dashboard",
     openSettings: "Open settings",
     publish: "Publish",
     publishNote: "Publish this note",

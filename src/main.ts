@@ -18,7 +18,7 @@ import {
   type TAbstractFile,
 } from "obsidian";
 import { NekoteApiClient } from "./api/client";
-import { apiBaseUrl } from "./api/endpoints";
+import { apiBaseUrl, dashboardUrl } from "./api/endpoints";
 import type { HttpFetch } from "./api/http";
 import { createSleep } from "./auth/device-authorization";
 import { ConnectionService } from "./connection/connection-service";
@@ -368,6 +368,14 @@ export default class NekoteBlogPlugin extends Plugin {
         .setIcon("settings")
         .onClick(() => {
           this.openSettings();
+        }),
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle(t.commands.openDashboard)
+        .setIcon("external-link")
+        .onClick(() => {
+          this.openExternal(dashboardUrl(this.settings.apiEnvironment));
         }),
     );
     menu.showAtMouseEvent(evt);

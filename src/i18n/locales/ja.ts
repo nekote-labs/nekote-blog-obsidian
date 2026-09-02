@@ -3,6 +3,7 @@ import type { LocaleStrings } from "./en";
 
 export const ja = {
   commands: {
+    openDashboard: "ダッシュボードを開く",
     openSettings: "設定を開く",
     publish: "反映",
     publishNote: "このノートだけ反映",
