@@ -262,7 +262,7 @@ export const en = {
     modeMismatch:
       "The server could not confirm the publish mode, so nothing was sent. Update the plugin, or run Publish to publish everything.",
     pushInProgress:
-      "The previous publish is still being processed on the server. Even right after you cancel, it stays in progress for a short while. Wait a moment and run it again.",
+      "The previous publish is still being processed on the server. Wait a moment and run it again.",
     unexpectedError: "Nekote Blog: Something went wrong.",
   },
 

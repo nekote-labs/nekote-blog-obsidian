@@ -614,8 +614,7 @@ describe("publish: 失敗の見せ方", () => {
     await publish(harness.deps, { kind: "all" });
 
     expect(harness.notices).toEqual([
-      "The previous publish is still being processed on the server. Even right after you " +
-        "cancel, it stays in progress for a short while. Wait a moment and run it again.",
+      "The previous publish is still being processed on the server. Wait a moment and run it again.",
     ]);
     expect(harness.reports).toEqual([]);
   });
