@@ -14,8 +14,8 @@ import type { FrontmatterImageKey } from "./frontmatter-image-modal";
 const ROW_CLASS = "nekote-blog-property-actions";
 
 const BUTTONS: ReadonlyArray<{ key: FrontmatterImageKey; label: string }> = [
-  { key: "thumbnail", label: "サムネイルを選択" },
-  { key: "cover", label: "カバー画像を選択" },
+  { key: "thumbnail", label: "Select thumbnail image" },
+  { key: "cover", label: "Select cover image" },
 ];
 
 export class PropertiesActions {

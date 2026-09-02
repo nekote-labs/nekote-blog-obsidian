@@ -53,7 +53,7 @@ export class ObsidianVaultGateway implements VaultGateway {
   private resolve(file: VaultFileRef): TFile {
     const found = this.app.vault.getFileByPath(file.vaultPath);
     if (found === null) {
-      throw new Error(`ファイルを読み取れませんでした: ${file.path}`);
+      throw new Error(`Could not read this file: ${file.path}`);
     }
     return found;
   }

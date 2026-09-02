@@ -79,21 +79,21 @@ export default class NekoteBlogPlugin extends Plugin {
     this.addSettingTab(new NekoteBlogSettingTab(this.app, this));
     this.addCommand({
       id: "open-settings",
-      name: "設定を開く",
+      name: "Open settings",
       callback: () => {
         this.openSettings();
       },
     });
     this.addCommand({
       id: "publish",
-      name: "Nekote Blogへ反映",
+      name: "Publish",
       callback: () => {
         void this.publish();
       },
     });
     this.addCommand({
       id: "insert-frontmatter",
-      name: "フロントマターを挿入",
+      name: "Insert frontmatter",
       checkCallback: (checking) =>
         this.runWithPublishTarget(checking, (file) => {
           void this.insertFrontmatter(file);
@@ -101,7 +101,7 @@ export default class NekoteBlogPlugin extends Plugin {
     });
     this.addCommand({
       id: "pick-thumbnail",
-      name: "サムネイル画像を選択",
+      name: "Select thumbnail image",
       checkCallback: (checking) =>
         this.runWithPublishTarget(checking, (file) => {
           this.openImagePicker(file, "thumbnail");
@@ -109,7 +109,7 @@ export default class NekoteBlogPlugin extends Plugin {
     });
     this.addCommand({
       id: "pick-cover",
-      name: "カバー画像を選択",
+      name: "Select cover image",
       checkCallback: (checking) =>
         this.runWithPublishTarget(checking, (file) => {
           this.openImagePicker(file, "cover");
@@ -166,11 +166,11 @@ export default class NekoteBlogPlugin extends Plugin {
    */
   async publish(): Promise<void> {
     if (this.publishing !== null) {
-      new Notice("Nekote Blog: すでに反映を実行しています。");
+      new Notice("Nekote Blog: Already publishing.");
       return;
     }
     if (!this.connection.isConnected()) {
-      new Notice("Nekote Blog: 先に設定画面からブログと接続してください。", 8000);
+      new Notice("Nekote Blog: Connect to your blog from the settings first.", 8000);
       return;
     }
 
@@ -227,7 +227,7 @@ export default class NekoteBlogPlugin extends Plugin {
       if ((await this.app.vault.read(file)).trim() !== "") return;
       await this.insertTemplate(file);
     } catch (error) {
-      console.error("Nekote Blog: フロントマターの自動挿入に失敗しました", error);
+      console.error("Nekote Blog: could not insert frontmatter automatically", error);
     }
   }
 
@@ -245,7 +245,7 @@ export default class NekoteBlogPlugin extends Plugin {
     try {
       await this.insertTemplateIfMissing(file);
     } catch (error) {
-      console.error("Nekote Blog: フロントマターの自動挿入に失敗しました", error);
+      console.error("Nekote Blog: could not insert frontmatter automatically", error);
     }
   }
 
@@ -255,11 +255,11 @@ export default class NekoteBlogPlugin extends Plugin {
       const changed = await this.insertTemplateIfMissing(file);
       new Notice(
         changed
-          ? "Nekote Blog: フロントマターを挿入しました。"
-          : "Nekote Blog: フロントマターは挿入済みです。",
+          ? "Nekote Blog: Frontmatter inserted."
+          : "Nekote Blog: Frontmatter is already there.",
       );
     } catch {
-      new Notice("Nekote Blog: フロントマターを挿入できませんでした。");
+      new Notice("Nekote Blog: Could not insert frontmatter.");
     }
   }
 
@@ -298,7 +298,7 @@ export default class NekoteBlogPlugin extends Plugin {
     const menu = new Menu();
     menu.addItem((item) =>
       item
-        .setTitle("Nekote Blogへ反映")
+        .setTitle("Publish to Nekote Blog")
         .setIcon("upload")
         .onClick(() => {
           void this.publish();
@@ -306,7 +306,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("設定を開く")
+        .setTitle("Open settings")
         .setIcon("settings")
         .onClick(() => {
           this.openSettings();
@@ -320,7 +320,7 @@ export default class NekoteBlogPlugin extends Plugin {
     if (!isPublishTargetVaultPath(file.path, this.settings.contentRoot)) return;
     menu.addItem((item) =>
       item
-        .setTitle("Nekote Blogへ反映")
+        .setTitle("Publish to Nekote Blog")
         .setIcon("upload")
         .onClick(() => {
           void this.publish();
@@ -328,7 +328,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Nekote Blog: サムネイル画像を選択")
+        .setTitle("Nekote Blog: Select thumbnail image")
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "thumbnail");
@@ -336,7 +336,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Nekote Blog: カバー画像を選択")
+        .setTitle("Nekote Blog: Select cover image")
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "cover");
@@ -383,7 +383,7 @@ export default class NekoteBlogPlugin extends Plugin {
     const menu = new Menu();
     menu.addItem((item) =>
       item
-        .setTitle("Nekote Blogへ反映")
+        .setTitle("Publish to Nekote Blog")
         .setIcon("upload")
         .onClick(() => {
           void this.publish();
@@ -391,7 +391,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("サムネイル画像を選択")
+        .setTitle("Select thumbnail image")
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "thumbnail");
@@ -399,7 +399,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("カバー画像を選択")
+        .setTitle("Select cover image")
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "cover");
@@ -407,7 +407,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("フロントマターを挿入")
+        .setTitle("Insert frontmatter")
         .setIcon("list-plus")
         .onClick(() => {
           void this.insertFrontmatter(file);
@@ -436,7 +436,7 @@ export default class NekoteBlogPlugin extends Plugin {
       return;
     if (internal.getAssignedWidget("title") !== null) return;
     internal.setType("title", "text").catch((error: unknown) => {
-      console.error("Nekote Blog: titleプロパティの型登録に失敗しました", error);
+      console.error("Nekote Blog: could not register the type for the title property", error);
     });
   }
 
@@ -452,7 +452,7 @@ export default class NekoteBlogPlugin extends Plugin {
     ).setting;
     if (typeof internal?.open !== "function" || typeof internal.openTabById !== "function") {
       new Notice(
-        "Nekote Blog: 設定 → コミュニティプラグイン → Nekote Blogから設定を開いてください。",
+        "Nekote Blog: Open Settings > Community plugins > Nekote Blog to change the settings.",
       );
       return;
     }

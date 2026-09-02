@@ -129,7 +129,7 @@ describe("NekoteBlogSettingTabの詳細設定", () => {
   it("devModeが有効なときだけ接続先を描画する", () => {
     renderAdvanced(createTab(vi.fn<ConnectFn>(), { devMode: true }));
 
-    expect(renderedNames.list).toEqual(["詳細", "接続先"]);
+    expect(renderedNames.list).toEqual(["Advanced", "Server"]);
   });
 });
 
@@ -141,7 +141,7 @@ describe("NekoteBlogSettingTabの記事を置く場所セクション", () => {
   it("コンテンツルートと画像の取り込み先を描画する", () => {
     renderContentLocation(createTab(vi.fn<ConnectFn>()));
 
-    expect(renderedNames.list).toEqual(["記事を置く場所", "コンテンツルート", "画像の取り込み先"]);
+    expect(renderedNames.list).toEqual(["Content location", "Content root", "Image import folder"]);
   });
 });
 
@@ -154,10 +154,10 @@ describe("NekoteBlogSettingTabの公開セクション", () => {
     renderPublishing(createTab(vi.fn<ConnectFn>()));
 
     expect(renderedNames.list).toEqual([
-      "公開",
-      "新規ノートにフロントマターを自動挿入",
-      "最終反映",
-      "Nekote Blogへ反映",
+      "Publishing",
+      "Insert frontmatter into new notes automatically",
+      "Last publish",
+      "Publish to Nekote Blog",
     ]);
   });
 });

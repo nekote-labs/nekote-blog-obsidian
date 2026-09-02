@@ -61,16 +61,16 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 未接続 ---------------------------------------------------------------
 
   private renderDisconnected(container: HTMLElement): void {
-    new Setting(container).setName("接続").setHeading();
+    new Setting(container).setName("Connection").setHeading();
 
     container.createEl("p", {
       cls: "nekote-blog-description",
-      text: "Nekote Blogのアカウントとブログが必要です。接続するとブラウザで承認画面が開きます。",
+      text: "You need a Nekote Blog account and a blog. Connecting opens an approval page in your browser.",
     });
 
     new Setting(container)
-      .setName("端末名")
-      .setDesc("承認画面とダッシュボードの端末一覧に表示されます。")
+      .setName("Device name")
+      .setDesc("Shown on the approval page and in the device list on your dashboard.")
       .addText((text) =>
         text
           .setPlaceholder("Obsidian")
@@ -81,11 +81,11 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       );
 
     new Setting(container)
-      .setName("Nekote Blogと接続")
-      .setDesc("この端末だけの接続です。別の端末では改めて接続します。")
+      .setName("Connect to Nekote Blog")
+      .setDesc("This connects only this device. Connect again on each other device.")
       .addButton((button) =>
         button
-          .setButtonText("接続")
+          .setButtonText("Connect")
           .setCta()
           .onClick(() => {
             void this.startAuthorization();
@@ -96,15 +96,15 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 認可開始直後 -----------------------------------------------------------
 
   private renderAuthorizationStarting(container: HTMLElement): void {
-    new Setting(container).setName("承認を待っています").setHeading();
+    new Setting(container).setName("Waiting for approval").setHeading();
 
     container.createEl("p", {
       cls: "nekote-blog-description",
-      text: "接続を開始しています…",
+      text: "Starting the connection…",
     });
 
     new Setting(container).addButton((button) =>
-      button.setButtonText("中止").onClick(() => {
+      button.setButtonText("Cancel").onClick(() => {
         this.cancelAuthorization();
         this.display();
       }),
@@ -117,25 +117,25 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
     const prompt = this.prompt;
     if (prompt === null) return;
 
-    new Setting(container).setName("承認を待っています").setHeading();
+    new Setting(container).setName("Waiting for approval").setHeading();
 
     container.createEl("p", {
       cls: "nekote-blog-description",
-      text: "ブラウザで開いたページに次のコードが表示されていることを確認して、承認してください。",
+      text: "Check that the page opened in your browser shows the code below, then approve it.",
     });
     container.createEl("div", { cls: "nekote-blog-user-code", text: prompt.userCode });
 
     new Setting(container)
-      .setName("承認ページ")
+      .setName("Approval page")
       .setDesc(prompt.verificationUri)
       .addButton((button) =>
-        button.setButtonText("もう一度開く").onClick(() => {
+        button.setButtonText("Open again").onClick(() => {
           this.plugin.openExternal(prompt.verificationUriComplete);
         }),
       );
 
     new Setting(container).addButton((button) =>
-      button.setButtonText("中止").onClick(() => {
+      button.setButtonText("Cancel").onClick(() => {
         this.cancelAuthorization();
         this.display();
       }),
@@ -145,36 +145,38 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 接続済み -------------------------------------------------------------
 
   private renderConnected(container: HTMLElement): void {
-    new Setting(container).setName("接続").setHeading();
+    new Setting(container).setName("Connection").setHeading();
 
     const hint = this.plugin.settings.connection;
     new Setting(container)
-      .setName("接続先のブログ")
+      .setName("Connected blog")
       .setDesc(
         hint === null
-          ? "接続情報を取得できていません。"
-          : `${hint.blog.title}（${hint.blog.subdomain}.nekote.blog）`,
+          ? "Connection details are not available."
+          : `${hint.blog.title} (${hint.blog.subdomain}.nekote.blog)`,
       );
 
-    new Setting(container).setName("この端末").setDesc(hint === null ? "不明" : hint.device.name);
+    new Setting(container)
+      .setName("This device")
+      .setDesc(hint === null ? "Unknown" : hint.device.name);
 
     new Setting(container)
-      .setName("接続状態")
+      .setName("Status")
       .setDesc(describeConnection(this.connection))
       .addButton((button) =>
-        button.setButtonText("最新の状態を確認").onClick(() => {
+        button.setButtonText("Refresh").onClick(() => {
           void this.refreshConnection();
         }),
       );
 
     new Setting(container)
-      .setName("接続を解除")
+      .setName("Disconnect")
       .setDesc(
-        "この端末のトークンを失効させます。公開中の記事はそのまま残ります。再び反映するには接続し直します。",
+        "Revokes the token for this device. Published posts stay online. To publish again, connect once more.",
       )
       .addButton((button) =>
         button
-          .setButtonText("解除")
+          .setButtonText("Disconnect")
           .setWarning()
           .onClick(() => {
             void this.disconnect();
@@ -185,21 +187,21 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 記事を置く場所 -------------------------------------------------------
 
   private renderContentLocation(container: HTMLElement): void {
-    new Setting(container).setName("記事を置く場所").setHeading();
+    new Setting(container).setName("Content location").setHeading();
 
     new Setting(container)
-      .setName("コンテンツルート")
+      .setName("Content root")
       .setDesc(
-        "公開の起点にするフォルダです。直下の posts/ が記事、pages/ が固定ページになります。選ぶまで反映できません。",
+        "The folder publishing starts from. Directly inside it, posts/ holds posts and pages/ holds pages. You cannot publish until you choose one.",
       )
       .addDropdown((dropdown) => {
-        dropdown.addOption(CONTENT_ROOT_NONE, "（未選択）");
+        dropdown.addOption(CONTENT_ROOT_NONE, "(not selected)");
         dropdown.addOption(CONTENT_ROOT_VAULT, describeContentRoot(""));
         const folders = this.plugin.folderPaths().filter((path) => path !== "");
         // 選択済みのフォルダが消えた・名前が変わった場合も、いま何が設定されているかは見せる
         const current = this.plugin.settings.contentRoot;
         if (current !== null && current !== "" && !folders.includes(current)) {
-          dropdown.addOption(current, `${current}（見つかりません）`);
+          dropdown.addOption(current, `${current} (not found)`);
         }
         for (const path of folders) dropdown.addOption(path, path);
         dropdown.setValue(toDropdownValue(current));
@@ -209,15 +211,17 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       });
 
     new Setting(container)
-      .setName("画像の取り込み先")
-      .setDesc("サムネイル・カバーの「画像ファイルを取り込む…」で保存するフォルダです。")
+      .setName("Image import folder")
+      .setDesc(
+        'The folder where "Import an image file…" saves images for thumbnails and cover images.',
+      )
       .addDropdown((dropdown) => {
-        dropdown.addOption(IMPORT_FOLDER_DEFAULT, "コンテンツルート直下の assets（既定）");
+        dropdown.addOption(IMPORT_FOLDER_DEFAULT, "assets under the content root (default)");
         const folders = this.plugin.folderPaths().filter((path) => path !== "");
         // 選択済みのフォルダが消えた・名前が変わった場合も、いま何が設定されているかは見せる
         const current = this.plugin.settings.imageImportFolder;
         if (current !== null && !folders.includes(current)) {
-          dropdown.addOption(current, `${current}（見つかりません）`);
+          dropdown.addOption(current, `${current} (not found)`);
         }
         for (const path of folders) dropdown.addOption(path, path);
         dropdown.setValue(current ?? IMPORT_FOLDER_DEFAULT);
@@ -232,12 +236,12 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 公開 -----------------------------------------------------------------
 
   private renderPublishing(container: HTMLElement): void {
-    new Setting(container).setName("公開").setHeading();
+    new Setting(container).setName("Publishing").setHeading();
 
     new Setting(container)
-      .setName("新規ノートにフロントマターを自動挿入")
+      .setName("Insert frontmatter into new notes automatically")
       .setDesc(
-        "posts・pages配下に作った空のノートへ、公開用のフロントマター（draft: trueなど）を最初から入れます。",
+        "Adds publishing frontmatter such as draft: true to empty notes created under posts or pages.",
       )
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.autoInsertFrontmatter).onChange((value) => {
@@ -247,19 +251,19 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
 
     const lastPush = this.plugin.settings.lastPush;
     new Setting(container)
-      .setName("最終反映")
+      .setName("Last publish")
       .setDesc(
         lastPush === null
-          ? "まだ反映していません。"
-          : `${formatDateTime(lastPush.syncedAt)}（revision ${lastPush.revision}）`,
+          ? "Not published yet."
+          : `${formatDateTime(lastPush.syncedAt)} (revision ${lastPush.revision})`,
       );
 
     new Setting(container)
-      .setName("Nekote Blogへ反映")
-      .setDesc("いまのvaultの内容を送ります。送る前に内容を確認できます。")
+      .setName("Publish to Nekote Blog")
+      .setDesc("Sends the current contents of your vault. You can review them before sending.")
       .addButton((button) =>
         button
-          .setButtonText("反映")
+          .setButtonText("Publish")
           .setCta()
           .setDisabled(
             !this.plugin.connection.isConnected() || this.plugin.settings.contentRoot === null,
@@ -277,19 +281,19 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
     // 配布ユーザーにstagingの選択肢を見せない。詳細セクションは今これしか無いので丸ごと消す
     if (!this.plugin.settings.devMode) return;
 
-    new Setting(container).setName("詳細").setHeading();
+    new Setting(container).setName("Advanced").setHeading();
 
     new Setting(container)
-      .setName("接続先")
+      .setName("Server")
       .setDesc(
         this.plugin.connection.isConnected()
-          ? "接続中は変更できません。変更するには一度接続を解除してください。"
+          ? "Cannot be changed while connected. Disconnect first to change it."
           : API_BASE_URLS[this.plugin.settings.apiEnvironment],
       )
       .addDropdown((dropdown) =>
         dropdown
-          .addOption("production", "本番")
-          .addOption("staging", "staging（検証用）")
+          .addOption("production", "Production")
+          .addOption("staging", "Staging")
           .setValue(this.plugin.settings.apiEnvironment)
           .setDisabled(this.plugin.connection.isConnected())
           .onChange((value) => {
@@ -322,13 +326,13 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
 
       switch (result.status) {
         case "approved":
-          new Notice(`Nekote Blog: ${result.blog.title} と接続しました。`);
+          new Notice(`Nekote Blog: Connected to ${result.blog.title}.`);
           break;
         case "denied":
-          new Notice("Nekote Blog: 承認が拒否されました。");
+          new Notice("Nekote Blog: The approval was denied.");
           break;
         case "expired":
-          new Notice("Nekote Blog: 承認の有効期限が切れました。もう一度お試しください。");
+          new Notice("Nekote Blog: The approval expired. Please try again.");
           break;
         case "cancelled":
           break;
@@ -353,7 +357,7 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   private async refreshConnection(): Promise<void> {
     try {
       this.connection = await this.plugin.connection.fetchConnection();
-      new Notice("Nekote Blog: 接続状態を更新しました。");
+      new Notice("Nekote Blog: Connection status updated.");
     } catch (error) {
       this.connection = null;
       notifyError(error);
@@ -365,11 +369,11 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
     const result = await this.plugin.connection.disconnect();
     this.connection = null;
     if (result.revokedOnServer) {
-      new Notice("Nekote Blog: 接続を解除しました。");
+      new Notice("Nekote Blog: Disconnected.");
     } else {
       new Notice(
-        "Nekote Blog: この端末の情報は削除しましたが、サーバー側の失効に失敗しました" +
-          `（${result.reason ?? "原因不明"}）。ダッシュボードの端末一覧から失効させてください。`,
+        "Nekote Blog: This device was removed here, but revoking it on the server failed" +
+          ` (${result.reason ?? "unknown reason"}). Revoke it from the device list on your dashboard.`,
         10000,
       );
     }
@@ -403,16 +407,16 @@ function formatDateTime(iso: string): string {
 }
 
 function describeConnection(connection: ConnectionResponse | null): string {
-  if (connection === null) return "未確認";
+  if (connection === null) return "Not checked yet";
   switch (connection.source.kind) {
     case "none":
-      return "コンテンツソース未設定（初回の反映で接続されます）";
+      return "No content source set (your first publish will connect it)";
     case "other":
-      return `別のソース（${connection.source.type}）が接続中です。初回の反映で切り替わります。`;
+      return `Another source (${connection.source.type}) is connected. Your first publish will switch it over.`;
     case "obsidian":
       return (
-        `Obsidianソース接続中 / revision ${connection.source.appliedRevision}` +
-        ` / コンテンツルート「${connection.source.contentRoot === "" ? "（vaultルート）" : connection.source.contentRoot}」`
+        `Obsidian source connected / revision ${connection.source.appliedRevision}` +
+        ` / content root "${connection.source.contentRoot === "" ? "(vault root)" : connection.source.contentRoot}"`
       );
   }
 }
@@ -421,6 +425,6 @@ function notifyError(error: unknown): void {
   const message =
     error instanceof NekoteApiError
       ? error.message
-      : "予期しないエラーが発生しました。しばらく待ってからお試しください。";
+      : "Something went wrong. Please wait a moment and try again.";
   new Notice(`Nekote Blog: ${message}`, 10000);
 }

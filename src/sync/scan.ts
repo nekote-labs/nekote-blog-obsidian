@@ -44,7 +44,7 @@ export class ScanAbortedError extends Error {
 /** 利用者が続行確認で取り消した */
 export class ScanCancelledError extends Error {
   constructor() {
-    super("反映を取り消しました。");
+    super("Publish cancelled.");
     this.name = "ScanCancelledError";
   }
 }
@@ -110,7 +110,7 @@ export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<Sc
 
   if (targets.length > MAX_MANIFEST_MARKDOWN_ENTRIES) {
     throw new ScanAbortedError(
-      `公開対象のMarkdownが${targets.length}件あり、上限の${MAX_MANIFEST_MARKDOWN_ENTRIES}件を超えています。`,
+      `There are ${targets.length} Markdown files to publish, which is over the limit of ${MAX_MANIFEST_MARKDOWN_ENTRIES}.`,
     );
   }
 
@@ -136,7 +136,7 @@ export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<Sc
     const bytes = new TextEncoder().encode(note.markdown);
     if (bytes.byteLength > MAX_MARKDOWN_FILE_BYTES) {
       throw new ScanAbortedError(
-        `Markdownが上限（${formatBytes(MAX_MARKDOWN_FILE_BYTES)}）を超えています: ${target.articlePath}`,
+        `This Markdown file is over the ${formatBytes(MAX_MARKDOWN_FILE_BYTES)} limit: ${target.articlePath}`,
       );
     }
 
@@ -167,7 +167,7 @@ export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<Sc
   const assetFiles = resolveAssets(referencedAssets, byPath);
   if (assetFiles.length > MAX_MANIFEST_ASSET_ENTRIES) {
     throw new ScanAbortedError(
-      `参照アセットが${assetFiles.length}件あり、上限の${MAX_MANIFEST_ASSET_ENTRIES}件を超えています。`,
+      `There are ${assetFiles.length} referenced assets, which is over the limit of ${MAX_MANIFEST_ASSET_ENTRIES}.`,
     );
   }
   for (const file of assetFiles) assertAssetSize(file, file.size);
@@ -200,7 +200,7 @@ export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<Sc
   const collision = findCaseCollision(sorted);
   if (collision !== null) {
     throw new ScanAbortedError(
-      "大文字小文字だけが違うpathは同時に扱えません。どちらかの名前を変えてください: " +
+      "Paths that differ only in letter case cannot be published together. Rename one of them: " +
         `${collision.first} / ${collision.second}`,
     );
   }
@@ -234,7 +234,7 @@ function indexFiles(files: readonly VaultFileRef[]): Map<string, VaultFileRef> {
     const existing = byPath.get(file.path);
     if (existing !== undefined) {
       throw new ScanAbortedError(
-        "Unicodeの正規化で同じ名前になるファイルが2つあります。どちらかの名前を変えてください: " +
+        "Two files end up with the same name after Unicode normalization. Rename one of them: " +
           `${existing.vaultPath} / ${file.vaultPath}`,
       );
     }
@@ -255,7 +255,7 @@ function collectNoteTargets(
 
     // 公開対象と分かったあとにpathを検査する。ここで黙って除外すると削除になる
     if (!isCanonicalPath(articlePath)) {
-      throw new ScanAbortedError(`pathに使えない文字が含まれています: ${file.vaultPath}`);
+      throw new ScanAbortedError(`The path contains unsupported characters: ${file.vaultPath}`);
     }
     targets.push({ file, articlePath });
   }
@@ -334,8 +334,8 @@ async function readAssetBytes(vault: VaultGateway, file: VaultFileRef): Promise<
 
 function unreadable(file: VaultFileRef): string {
   return (
-    `ファイルを読み取れませんでした: ${file.path}\n` +
-    "クラウド同期が終わっていない可能性があります。すべてのファイルを端末へダウンロードしてから、もう一度実行してください。"
+    `Could not read this file: ${file.path}\n` +
+    "Cloud sync may not have finished. Download all files to this device, then try again."
   );
 }
 
@@ -343,9 +343,7 @@ function assertAssetSize(file: VaultFileRef, bytes: number): void {
   const limit =
     classifyAssetPath(file.path) === "image" ? MAX_IMAGE_FILE_BYTES : MAX_OTHER_ASSET_FILE_BYTES;
   if (bytes > limit) {
-    throw new ScanAbortedError(
-      `アセットが上限（${formatBytes(limit)}）を超えています: ${file.path}`,
-    );
+    throw new ScanAbortedError(`This asset is over the ${formatBytes(limit)} limit: ${file.path}`);
   }
 }
 
@@ -373,7 +371,7 @@ async function loadBlob(
   }
 
   const file = sources.assetBySha.get(sha256);
-  if (file === undefined) throw new Error(`送信対象にないファイルです: ${sha256}`);
+  if (file === undefined) throw new Error(`This file is not part of this publish: ${sha256}`);
   return assertSameContent(new Uint8Array(await readAssetBytes(deps.vault, file)), sha256);
 }
 
@@ -383,7 +381,7 @@ async function assertSameContent(
 ): Promise<ArrayBuffer> {
   if ((await sha256Hex(bytes)) !== sha256) {
     throw new ScanAbortedError(
-      "反映の途中でvaultの内容が変わりました。もう一度「Nekote Blogへ反映」を実行してください。",
+      'The vault changed while publishing. Run "Publish to Nekote Blog" again.',
     );
   }
   // 呼び出し元はbuffer全体を占める新規のviewを渡す契約。部分viewを渡すと余分な内容まで返る

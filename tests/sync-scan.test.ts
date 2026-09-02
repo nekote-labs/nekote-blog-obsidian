@@ -477,7 +477,7 @@ describe("scanVault(): loadBlob()", () => {
     const error = await rejection(result.loadBlob(shaOf(result, "posts/a.md")));
 
     expect(error).toBeInstanceOf(ScanAbortedError);
-    expect(messageOf(error)).toContain("vaultの内容が変わりました");
+    expect(messageOf(error)).toContain("The vault changed while publishing");
   });
 });
 

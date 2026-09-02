@@ -304,7 +304,7 @@ describe("runPush: finalize", () => {
     expect(harness.sleeps).toEqual([30_000]);
     expect(harness.progress).toContainEqual({
       phase: "finalize",
-      message: "送信内容を確認しています…",
+      message: "Verifying files…",
       done: 500,
       total: 1200,
     });

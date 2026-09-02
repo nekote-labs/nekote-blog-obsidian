@@ -85,7 +85,7 @@ export function collectReferences(
 
     const vaultPath = resolveRelativePath(baseDirectory, target);
     if (vaultPath === null) {
-      issues.warning(`vaultの外を指す参照は取り込めません: ${found.text}`);
+      issues.warning(`A reference that points outside the vault cannot be imported: ${found.text}`);
       continue;
     }
 
@@ -182,19 +182,22 @@ function collectAsset(
   into: Set<string>,
 ): void {
   if (context.findByPath(vaultPath) === null) {
-    issues.error(`本文が参照するファイルが見つかりません: ${vaultPath}`);
+    issues.error(`A file referenced by this note was not found: ${vaultPath}`);
     return;
   }
 
   const kind = classifyAssetPath(vaultPath);
   if (isTransferableAsset(kind)) {
     if (!isCanonicalPath(vaultPath)) {
-      issues.warning(`pathに使えない文字が含まれるため参照を落としました: ${vaultPath}`);
+      issues.warning(
+        `The path contains characters that cannot be used, so the reference was dropped: ${vaultPath}`,
+      );
       return;
     }
     into.add(vaultPath);
     return;
   }
   // 対応していない形式はサーバーも原文のまま残すので、指摘は出さない
-  if (kind === "svg") issues.warning(`SVGは公開できないため参照を落としました: ${vaultPath}`);
+  if (kind === "svg")
+    issues.warning(`SVG cannot be published, so the reference was dropped: ${vaultPath}`);
 }

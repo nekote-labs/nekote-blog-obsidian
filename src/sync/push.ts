@@ -64,7 +64,7 @@ export interface PushInput {
 }
 
 export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOutcome> {
-  deps.report({ phase: "begin", message: "反映の内容を確認しています…" });
+  deps.report({ phase: "begin", message: "Checking what to publish…" });
   let begin = await deps.client.beginPush(input.manifest);
   deps.onPushStarted(begin.pushId);
   if (deps.signal.aborted) return { status: "cancelled" };
@@ -114,7 +114,7 @@ async function uploadBlobs(
     if (deps.signal.aborted) return false;
     deps.report({
       phase: "upload",
-      message: "ファイルを送信しています…",
+      message: "Sending files…",
       done: index,
       total: missing.length,
     });
@@ -123,7 +123,7 @@ async function uploadBlobs(
   if (missing.length > 0) {
     deps.report({
       phase: "upload",
-      message: "ファイルを送信しています…",
+      message: "Sending files…",
       done: missing.length,
       total: missing.length,
     });
@@ -163,7 +163,7 @@ async function finalize(
   let retries = 0;
   for (;;) {
     if (deps.signal.aborted) return false;
-    deps.report({ phase: "finalize", message: "送信内容を確認しています…" });
+    deps.report({ phase: "finalize", message: "Verifying files…" });
 
     let response;
     try {
@@ -191,7 +191,7 @@ async function finalize(
 
     deps.report({
       phase: "finalize",
-      message: "送信内容を確認しています…",
+      message: "Verifying files…",
       done: response.verification.verifiedEntryCount,
       total: response.verification.entryCount,
     });
@@ -217,7 +217,7 @@ async function pollUntilApplied(deps: PushDeps, pushId: string): Promise<PushOut
     if (Date.now() >= deadline) return { status: "applying", result };
     if (deps.signal.aborted) return { status: "cancelled" };
 
-    deps.report({ phase: "apply", message: "Nekote Blogで反映しています…" });
+    deps.report({ phase: "apply", message: "Publishing on Nekote Blog…" });
     if (!(await sleepUnlessAborted(deps, interval))) return { status: "cancelled" };
     interval = Math.min(POLL_MAX_INTERVAL_MS, Math.round(interval * 1.5));
     result = await deps.client.getPushStatus(pushId);

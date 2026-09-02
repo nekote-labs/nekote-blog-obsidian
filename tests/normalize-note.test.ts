@@ -71,7 +71,7 @@ describe("normalizeNote(): frontmatterと本文", () => {
     const note = run(md("---", "title: [閉じていない", "---", "本文"));
 
     expect(note.issues).toEqual([
-      { level: "error", message: "frontmatterのYAMLを解釈できませんでした。" },
+      { level: "error", message: "Could not parse the frontmatter YAML." },
     ]);
     expect(note.markdown).toBe(md("---", "title: [閉じていない", "---", "本文"));
   });
@@ -83,7 +83,7 @@ describe("normalizeNote(): frontmatterと本文", () => {
     const note = run(source);
 
     expect(note.issues).toEqual([
-      { level: "error", message: "frontmatterを閉じる区切り（---）がありません。" },
+      { level: "error", message: "The frontmatter is missing its closing --- delimiter." },
     ]);
     expect(note.markdown).toBe(source);
   });
@@ -135,7 +135,7 @@ describe("normalizeNote(): frontmatterの画像", () => {
       expect(note.issues).toEqual([
         {
           level: "warning",
-          message: "frontmatterのthumbnailに指定できないURLです。省略しました。",
+          message: "The frontmatter thumbnail has a URL that cannot be used, so it was skipped.",
         },
       ]);
     },
@@ -152,7 +152,7 @@ describe("normalizeNote(): frontmatterの画像", () => {
     expect(note.issues).toEqual([
       {
         level: "warning",
-        message: `pathに使えない文字が含まれるため参照を落としました: blog/posts/img/${name}`,
+        message: `The path contains characters that cannot be used, so the reference was dropped: blog/posts/img/${name}`,
       },
     ]);
   });
@@ -167,7 +167,7 @@ describe("normalizeNote(): frontmatterの画像", () => {
       {
         level: "warning",
         message:
-          "frontmatterのthumbnailの画像が見つかりません。省略しました: blog/posts/img/cat.png",
+          "The frontmatter thumbnail image was not found, so it was skipped: blog/posts/img/cat.png",
       },
     ]);
   });
@@ -181,7 +181,7 @@ describe("normalizeNote(): frontmatterの画像", () => {
     expect(note.issues).toEqual([
       {
         level: "warning",
-        message: `frontmatterのthumbnailにはラスタ画像を指定してください。省略しました: ./img/${name}`,
+        message: `The frontmatter thumbnail must be a raster image, so it was skipped: ./img/${name}`,
       },
     ]);
   });
@@ -202,7 +202,7 @@ describe("normalizeNote(): 参照アセットの申告", () => {
     expect(note.issues).toEqual([
       {
         level: "error",
-        message: `本文が参照するアセットが${MAX_ARTICLE_ASSET_PATHS}件を超えています。減らしてください。`,
+        message: `This note references more than ${MAX_ARTICLE_ASSET_PATHS} assets. Reduce the number of referenced assets.`,
       },
     ]);
   });

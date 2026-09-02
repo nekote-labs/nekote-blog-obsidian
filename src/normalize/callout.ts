@@ -42,7 +42,7 @@ const CALLOUT_TYPES = new Map<string, NekoteCalloutType>([
   ["bug", "alert"],
 ]);
 
-const NESTED_WARNING = "入れ子のCalloutは通常の引用として表示しました。";
+const NESTED_WARNING = "Nested callouts were rendered as regular blockquotes.";
 
 /**
  * 引用1階層分。先頭の空白は0〜3個まで、`>`の直後の空白は1つだけ落とす。
@@ -155,7 +155,9 @@ function resolveType(identifier: string, issues: IssueCollector): NekoteCalloutT
   if (type !== undefined) return type;
   // 識別子が無い`[!]`は伝える種類が無いので黙ってnoteにする
   if (identifier !== "") {
-    issues.warning(`対応していないCalloutの種類「${identifier}」はnoteとして表示しました。`);
+    issues.warning(
+      `This callout type is not supported, so it was rendered as a note: ${identifier}`,
+    );
   }
   return "note";
 }

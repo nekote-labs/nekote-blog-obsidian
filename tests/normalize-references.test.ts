@@ -52,7 +52,10 @@ describe("collectReferences(): アセットのpath解決", () => {
 
     expect(run("![猫](../../x.png)").assetPaths).toEqual([]);
     expect(issues()).toEqual([
-      { level: "warning", message: "vaultの外を指す参照は取り込めません: ../../x.png" },
+      {
+        level: "warning",
+        message: "A reference that points outside the vault cannot be imported: ../../x.png",
+      },
     ]);
   });
 
@@ -183,7 +186,7 @@ describe("collectReferences(): 落とす参照", () => {
     expect(issues()).toEqual([
       {
         level: "error",
-        message: "本文が参照するファイルが見つかりません: blog/posts/img/missing.png",
+        message: "A file referenced by this note was not found: blog/posts/img/missing.png",
       },
     ]);
   });
@@ -195,7 +198,7 @@ describe("collectReferences(): 落とす参照", () => {
     expect(issues()).toEqual([
       {
         level: "warning",
-        message: "SVGは公開できないため参照を落としました: blog/posts/img/logo.svg",
+        message: "SVG cannot be published, so the reference was dropped: blog/posts/img/logo.svg",
       },
     ]);
   });
@@ -214,7 +217,8 @@ describe("collectReferences(): 落とす参照", () => {
     expect(issues()).toEqual([
       {
         level: "warning",
-        message: "pathに使えない文字が含まれるため参照を落としました: blog/posts/img/a\\b.png",
+        message:
+          "The path contains characters that cannot be used, so the reference was dropped: blog/posts/img/a\\b.png",
       },
     ]);
   });

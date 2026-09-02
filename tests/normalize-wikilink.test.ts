@@ -96,7 +96,7 @@ describe("normalizeWikilinks(): ノートへのリンク", () => {
 
     expect(run("[[note]]を見る")).toBe("noteを見る");
     expect(warnings()).toEqual([
-      "公開対象外のノートへのリンクは文字だけを残しました: drafts/note.md",
+      "A link to a note that is not published was replaced with text only: drafts/note.md",
     ]);
   });
 
@@ -104,7 +104,7 @@ describe("normalizeWikilinks(): ノートへのリンク", () => {
     const { run, warnings } = setup({ files: ["posts/hello.md"] });
 
     expect(run("[[missing|表示名]]")).toBe("表示名");
-    expect(warnings()).toEqual(["リンク先を解決できませんでした: missing"]);
+    expect(warnings()).toEqual(["Could not resolve the link target: missing"]);
   });
 
   it("解決先のpathが正規形でなければ参照を落とす", () => {
@@ -112,7 +112,7 @@ describe("normalizeWikilinks(): ノートへのリンク", () => {
 
     expect(run("[[note]]")).toBe("note");
     expect(warnings()).toEqual([
-      "pathに使えない文字が含まれるため参照を落としました: posts/no\\te.md",
+      "The path contains characters that cannot be used, so the reference was dropped: posts/no\\te.md",
     ]);
   });
 });
@@ -129,7 +129,7 @@ describe("normalizeWikilinks(): アセットの埋め込み", () => {
     const { run, warnings } = setup({ files: ["posts/hello.md", "posts/image.png"] });
 
     expect(run(`![[image.png|${size}]]`)).toBe("![image](image.png)");
-    expect(warnings()).toEqual(["画像のサイズ指定は反映されません。"]);
+    expect(warnings()).toEqual(["Image size options are not applied."]);
   });
 
   it("サイズでない表示名はラベルとして残す", () => {
@@ -160,14 +160,18 @@ describe("normalizeWikilinks(): アセットの埋め込み", () => {
     const { run, warnings } = setup({ files: ["posts/hello.md", "posts/doc.pdf"] });
 
     expect(run("![[doc.pdf#page=2]]")).toBe("![doc](doc.pdf)");
-    expect(warnings()).toEqual(["Nekoteに対応する表現がない指定は無視しました: #page=2"]);
+    expect(warnings()).toEqual([
+      "Nekote has no equivalent for this option, so it was ignored: #page=2",
+    ]);
   });
 
   it("SVGは文字だけになる", () => {
     const { run, warnings } = setup({ files: ["posts/hello.md", "posts/drawing.svg"] });
 
     expect(run("![[drawing.svg]]")).toBe("drawing.svg");
-    expect(warnings()).toEqual(["SVGは公開できないため文字だけを残しました: posts/drawing.svg"]);
+    expect(warnings()).toEqual([
+      "SVG cannot be published, so only its text was kept: posts/drawing.svg",
+    ]);
   });
 
   it("対応していない形式は文字だけになる", () => {
@@ -175,7 +179,7 @@ describe("normalizeWikilinks(): アセットの埋め込み", () => {
 
     expect(run("![[archive.zip]]")).toBe("archive.zip");
     expect(warnings()).toEqual([
-      "対応していない形式のファイルは文字だけを残しました: posts/archive.zip",
+      "This file format is not supported, so only its text was kept: posts/archive.zip",
     ]);
   });
 });
@@ -185,7 +189,7 @@ describe("normalizeWikilinks(): ノートの埋め込み", () => {
     const { run, warnings } = setup({ files: NOTE_FILES });
 
     expect(run("![[note]]")).toBe("[note](note.md)");
-    expect(warnings()).toEqual(["ノートの埋め込みは展開せず、リンクにしました。"]);
+    expect(warnings()).toEqual(["A note embed was not expanded and became a link instead."]);
   });
 });
 
@@ -230,14 +234,16 @@ describe("normalizeWikilinks(): ブロック参照", () => {
     const { run, warnings } = setup({ files: NOTE_FILES });
 
     expect(run("[[note#^abc123]]")).toBe("[note#^abc123](note.md)");
-    expect(warnings()).toEqual(["ブロック参照は記事の先頭へのリンクになりました。"]);
+    expect(warnings()).toEqual(["A block reference became a link to the top of the post."]);
   });
 
   it("同じノートの中へのブロック参照は文字だけになる", () => {
     const { run, warnings } = setup();
 
     expect(run("[[#^abc123|ここ]]")).toBe("ここ");
-    expect(warnings()).toEqual(["ブロック参照は表示できないため文字だけを残しました。"]);
+    expect(warnings()).toEqual([
+      "A block reference cannot be displayed, so only its text was kept.",
+    ]);
   });
 });
 

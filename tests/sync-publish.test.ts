@@ -289,7 +289,7 @@ describe("publish: 前提の確認", () => {
 
     await publish(harness.deps);
 
-    expect(harness.notices).toEqual(["先に設定画面でコンテンツルートを選んでください。"]);
+    expect(harness.notices).toEqual(["Select a content root in the plugin settings first."]);
     expect(harness.calls).toEqual([]);
     expect(harness.vaultCalls).toEqual([]);
   });
@@ -302,7 +302,7 @@ describe("publish: vault IDの突き合わせ", () => {
     await publish(harness.deps);
 
     expect(harness.settings.vaultId).toBe(CREATED_VAULT_ID);
-    expect(titles(harness)).toEqual(["Nekote Blogへ反映します"]);
+    expect(titles(harness)).toEqual(["Publish to Nekote Blog"]);
     expect(harness.begins[0]?.vaultId).toBe(CREATED_VAULT_ID);
     // 初回接続なのでbaseRevisionは0から始まる
     expect(harness.begins[0]?.baseRevision).toBe(0);
@@ -314,8 +314,8 @@ describe("publish: vault IDの突き合わせ", () => {
     await publish(harness.deps);
 
     expect(titles(harness)).toEqual([
-      "接続済みのvaultとして扱いますか？",
-      "Nekote Blogへ反映します",
+      "Treat this as the connected vault?",
+      "Publish to Nekote Blog",
     ]);
     expect(harness.settings.vaultId).toBe(VAULT_ID);
     expect(harness.begins[0]?.vaultId).toBe(VAULT_ID);
@@ -336,7 +336,7 @@ describe("publish: vault IDの突き合わせ", () => {
 
     await publish(harness.deps);
 
-    expect(titles(harness)).toEqual(["接続されているvaultと違います", "Nekote Blogへ反映します"]);
+    expect(titles(harness)).toEqual(["This is not the connected vault", "Publish to Nekote Blog"]);
     expect(harness.confirms[0]?.danger).toBe(true);
     // 承諾してもローカルのvault IDのまま送る（サーバー側が初回接続として作り直す）
     expect(harness.settings.vaultId).toBe("vault-local-0001");
@@ -364,7 +364,7 @@ describe("publish: コンテンツルートとrevisionの確認", () => {
 
     await publish(harness.deps);
 
-    expect(titles(harness)).toEqual(["コンテンツルートを変更します"]);
+    expect(titles(harness)).toEqual(["Change the content root"]);
     expect(harness.calls).toEqual(["getConnection"]);
     expect(harness.reports).toEqual([]);
   });
@@ -378,11 +378,11 @@ describe("publish: コンテンツルートとrevisionの確認", () => {
     await publish(harness.deps);
 
     expect(harness.calls).toEqual(["getConnection", "getAppliedManifest"]);
-    expect(titles(harness)).toEqual(["他の端末から反映されています"]);
+    expect(titles(harness)).toEqual(["Published from another device"]);
     expect(harness.confirms[0]?.sections).toEqual([
-      { title: "追加 1件", items: ["posts/draft.md"] },
-      { title: "更新 1件", items: ["posts/hello.md"] },
-      { title: "削除 1件", items: ["posts/gone.md"] },
+      { title: "Added 1 file", items: ["posts/draft.md"] },
+      { title: "Updated 1 file", items: ["posts/hello.md"] },
+      { title: "Deleted 1 file", items: ["posts/gone.md"] },
     ]);
   });
 
@@ -393,7 +393,7 @@ describe("publish: コンテンツルートとrevisionの確認", () => {
 
     await publish(harness.deps);
 
-    expect(titles(harness)).toEqual(["Nekote Blogへ反映します"]);
+    expect(titles(harness)).toEqual(["Publish to Nekote Blog"]);
     expect(harness.calls).not.toContain("getAppliedManifest");
   });
 });
@@ -401,12 +401,12 @@ describe("publish: コンテンツルートとrevisionの確認", () => {
 describe("publish: 反映前の確認", () => {
   it("送信の直前に必ず確認を出し、断ると何も送らない", async () => {
     const harness = createHarness({
-      answer: (request) => request.title !== "Nekote Blogへ反映します",
+      answer: (request) => request.title !== "Publish to Nekote Blog",
     });
 
     await publish(harness.deps);
 
-    expect(titles(harness)).toEqual(["Nekote Blogへ反映します"]);
+    expect(titles(harness)).toEqual(["Publish to Nekote Blog"]);
     expect(harness.calls).toEqual(["getConnection"]);
     expect(harness.reports).toEqual([]);
   });
@@ -417,7 +417,7 @@ describe("publish: 反映前の確認", () => {
     await publish(harness.deps);
 
     expect(harness.confirms[0]?.paragraphs[0]).toBe(
-      "反映先のブログ: ねこのブログ（neko.nekote.blog）",
+      "Publishing to: ねこのブログ (neko.nekote.blog)",
     );
   });
 
@@ -427,8 +427,8 @@ describe("publish: 反映前の確認", () => {
     await publish(harness.deps);
 
     const preflight = harness.confirms[1];
-    expect(preflight?.title).toBe("反映の内容を確認してください");
-    expect(preflight?.paragraphs[0]).toBe("反映先のブログ: ねこのブログ（neko.nekote.blog）");
+    expect(preflight?.title).toBe("Review what will be published");
+    expect(preflight?.paragraphs[0]).toBe("Publishing to: ねこのブログ (neko.nekote.blog)");
   });
 });
 
@@ -438,7 +438,10 @@ describe("publish: revision_conflict", () => {
 
     await publish(harness.deps);
 
-    expect(titles(harness)).toEqual(["Nekote Blogへ反映します", "他の反映が先に適用されています"]);
+    expect(titles(harness)).toEqual([
+      "Publish to Nekote Blog",
+      "Another publish was applied first",
+    ]);
     expect(harness.begins.map((manifest) => manifest.baseRevision)).toEqual([12, 20]);
     expect(harness.reports[0]?.outcome).toBe("applied");
   });
@@ -447,12 +450,12 @@ describe("publish: revision_conflict", () => {
     const harness = createHarness({
       begin: [apiError("revision_conflict")],
       // 反映前の確認は通し、conflictの確認だけ断る
-      answer: (request) => request.title === "Nekote Blogへ反映します",
+      answer: (request) => request.title === "Publish to Nekote Blog",
     });
 
     await publish(harness.deps);
 
-    expect(harness.notices).toEqual(["反映を取り消しました。"]);
+    expect(harness.notices).toEqual(["Publish cancelled."]);
     expect(harness.calls).not.toContain("finalizePush");
     expect(harness.settings.lastPush).toBeNull();
   });
@@ -474,7 +477,7 @@ describe("publish: 反映の結果", () => {
     expect(harness.storage.writes.map((write) => write.secret)).toEqual([PUSH_ID, ""]);
     expect(harness.reports[0]).toMatchObject({
       outcome: "applied",
-      headline: "反映しました（revision 13）",
+      headline: "Published (revision 13)",
     });
   });
 
@@ -487,7 +490,7 @@ describe("publish: 反映の結果", () => {
     expect(harness.patches.some((patch) => "lastPush" in patch)).toBe(false);
     expect(harness.reports[0]).toMatchObject({
       outcome: "failed",
-      headline: "反映できませんでした",
+      headline: "Could not publish",
     });
   });
 });
@@ -537,9 +540,9 @@ describe("publish: 失敗の見せ方", () => {
     expect(harness.calls).toEqual(["getConnection"]);
     expect(harness.reports[0]).toMatchObject({
       outcome: "failed",
-      headline: "反映を中止しました",
+      headline: "Publish stopped",
     });
-    expect(harness.reports[0]?.paragraphs[0]).toContain("ファイルを読み取れませんでした");
+    expect(harness.reports[0]?.paragraphs[0]).toContain("Could not read this file");
   });
 
   it("push_in_progressは分かりやすい通知にする", async () => {
@@ -548,8 +551,8 @@ describe("publish: 失敗の見せ方", () => {
     await publish(harness.deps);
 
     expect(harness.notices).toEqual([
-      "前の反映がサーバー側で処理中です。取り消した直後の場合も少しのあいだ残るので、" +
-        "しばらく待ってからもう一度実行してください。",
+      "The previous publish is still being processed on the server. It stays for a short " +
+        "while even right after you cancel it, so wait a moment and run it again.",
     ]);
     expect(harness.reports).toEqual([]);
   });

@@ -10,7 +10,7 @@ export function appendTruncatedItems<T>(
   if (items.length > limit) {
     list.createEl("li", {
       cls: "nekote-blog-description",
-      text: `ほか ${items.length - limit}件`,
+      text: `and ${items.length - limit} more`,
     });
   }
 }

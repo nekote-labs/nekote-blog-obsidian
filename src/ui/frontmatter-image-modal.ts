@@ -10,8 +10,8 @@ import { encodePathForMarkdownUrl, normalizeVaultPath, relativePathFrom } from "
 export type FrontmatterImageKey = "thumbnail" | "cover";
 
 const KEY_LABELS: Record<FrontmatterImageKey, string> = {
-  thumbnail: "サムネイル",
-  cover: "カバー画像",
+  thumbnail: "thumbnail",
+  cover: "cover image",
 };
 
 type PickerItem = { kind: "import" } | { kind: "asset"; file: TFile };
@@ -27,7 +27,7 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
     this.note = note;
     this.key = key;
     this.importFolder = importFolder;
-    this.setPlaceholder(`${KEY_LABELS[key]}にする画像を選ぶ…`);
+    this.setPlaceholder(`Select an image for the ${KEY_LABELS[key]}…`);
   }
 
   getItems(): PickerItem[] {
@@ -39,7 +39,7 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
   }
 
   getItemText(item: PickerItem): string {
-    return item.kind === "import" ? "画像ファイルを取り込む…" : item.file.path;
+    return item.kind === "import" ? "Import an image file…" : item.file.path;
   }
 
   onChooseItem(item: PickerItem): void {
@@ -60,17 +60,17 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
         frontmatter[this.key] = value;
       });
     } catch {
-      new Notice(`Nekote Blog: ${KEY_LABELS[this.key]}を設定できませんでした。`);
+      new Notice(`Nekote Blog: Could not set the ${KEY_LABELS[this.key]}.`);
       return;
     }
-    new Notice(`Nekote Blog: ${KEY_LABELS[this.key]}を設定しました。`);
+    new Notice(`Nekote Blog: Set the ${KEY_LABELS[this.key]}.`);
   }
 
   private async importThenApply(): Promise<void> {
     const picked = await pickLocalImage();
     if (picked === null) return;
     if (classifyAssetPath(picked.name) !== "image") {
-      new Notice("Nekote Blog: 対応形式はpng・jpg・jpeg・gif・webp・avifです。");
+      new Notice("Nekote Blog: Supported formats are png, jpg, jpeg, gif, webp and avif.");
       return;
     }
     try {
@@ -79,7 +79,7 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
       const created = await this.app.vault.createBinary(path, picked.data);
       await this.applyAsset(created);
     } catch {
-      new Notice("Nekote Blog: 画像を取り込めませんでした。");
+      new Notice("Nekote Blog: Could not import the image.");
     }
   }
 }

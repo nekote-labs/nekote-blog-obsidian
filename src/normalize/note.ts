@@ -110,14 +110,16 @@ function declaredAssetPaths(
   const declared = unique(bodyAssetPaths).slice(0, MAX_ARTICLE_ASSET_PATHS);
   if (unique(bodyAssetPaths).length > MAX_ARTICLE_ASSET_PATHS) {
     issues.error(
-      `本文が参照するアセットが${MAX_ARTICLE_ASSET_PATHS}件を超えています。減らしてください。`,
+      `This note references more than ${MAX_ARTICLE_ASSET_PATHS} assets. Reduce the number of referenced assets.`,
     );
   }
 
   for (const path of frontmatterAssets) {
     if (declared.includes(path)) continue;
     if (declared.length >= MAX_ARTICLE_ASSET_PATHS) {
-      issues.warning("参照アセットが上限に達したため、frontmatterの画像を省略しました。");
+      issues.warning(
+        "The referenced asset limit was reached, so the frontmatter image was skipped.",
+      );
       break;
     }
     declared.push(path);
@@ -142,7 +144,7 @@ function resolveFrontmatterImage(
 
   if (classifyReferenceUrl(value) !== "relative") {
     if (isHttpsUrl(value)) return null;
-    issues.warning(`frontmatterの${key}に指定できないURLです。省略しました。`);
+    issues.warning(`The frontmatter ${key} has a URL that cannot be used, so it was skipped.`);
     return null;
   }
 
@@ -150,21 +152,23 @@ function resolveFrontmatterImage(
   const resolved =
     decoded === null ? null : resolveRelativePath(directoryOf(context.articleVaultPath), decoded);
   if (resolved === null) {
-    issues.warning(`frontmatterの${key}の画像を解決できません。省略しました: ${value}`);
+    issues.warning(`Could not resolve the frontmatter ${key} image, so it was skipped: ${value}`);
     return null;
   }
   if (classifyAssetPath(resolved) !== "image") {
-    issues.warning(`frontmatterの${key}にはラスタ画像を指定してください。省略しました: ${value}`);
+    issues.warning(`The frontmatter ${key} must be a raster image, so it was skipped: ${value}`);
     return null;
   }
   if (context.findByPath(resolved) === null) {
-    issues.warning(`frontmatterの${key}の画像が見つかりません。省略しました: ${resolved}`);
+    issues.warning(`The frontmatter ${key} image was not found, so it was skipped: ${resolved}`);
     return null;
   }
   // 正規形でないpathはmanifest**全体**が拒否される。1件の画像のために記事を送れなく
   // しないよう、ここで落とす（本文由来の参照も`collectReferences()`が同じ扱いにする）
   if (!isCanonicalPath(resolved)) {
-    issues.warning(`pathに使えない文字が含まれるため参照を落としました: ${resolved}`);
+    issues.warning(
+      `The path contains characters that cannot be used, so the reference was dropped: ${resolved}`,
+    );
     return null;
   }
   return resolved;
@@ -175,5 +179,5 @@ function unique(paths: readonly string[]): string[] {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof FrontmatterError ? error.message : "frontmatterを読み取れませんでした。";
+  return error instanceof FrontmatterError ? error.message : "Could not read the frontmatter.";
 }

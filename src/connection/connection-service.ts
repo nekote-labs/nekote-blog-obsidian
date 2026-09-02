@@ -94,8 +94,7 @@ export class ConnectionService {
         revokedOnServer = true;
       } else {
         revokedOnServer = false;
-        reason =
-          error instanceof NekoteApiError ? error.message : "サーバーへ接続できませんでした。";
+        reason = error instanceof NekoteApiError ? error.message : "Could not reach the server.";
       }
     }
 

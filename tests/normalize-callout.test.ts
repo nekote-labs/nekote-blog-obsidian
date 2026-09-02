@@ -69,7 +69,9 @@ describe("normalizeCallouts(): typeの対応", () => {
     const { text, warnings } = run(md("> [!custom] 独自", "> 本文"));
 
     expect(text).toBe(md(":::note[独自]", "本文", ":::"));
-    expect(warnings).toEqual(["対応していないCalloutの種類「custom」はnoteとして表示しました。"]);
+    expect(warnings).toEqual([
+      "This callout type is not supported, so it was rendered as a note: custom",
+    ]);
   });
 });
 
@@ -142,7 +144,7 @@ describe("normalizeCallouts(): 入れ子のCallout", () => {
     const { text, warnings } = run(md("> [!question] 外側", "> > [!todo] 内側"));
 
     expect(text).toBe(md(":::help[外側]", "> 内側", ":::"));
-    expect(warnings).toEqual(["入れ子のCalloutは通常の引用として表示しました。"]);
+    expect(warnings).toEqual(["Nested callouts were rendered as regular blockquotes."]);
   });
 
   it("内側のタイトルが無ければ既定タイトルを残す", () => {
@@ -155,7 +157,7 @@ describe("normalizeCallouts(): 入れ子のCallout", () => {
     const { text, warnings } = run(md("> ふつうの引用", "> > [!warning] 内側"));
 
     expect(text).toBe(md("> ふつうの引用", "> > 内側"));
-    expect(warnings).toEqual(["入れ子のCalloutは通常の引用として表示しました。"]);
+    expect(warnings).toEqual(["Nested callouts were rendered as regular blockquotes."]);
   });
 });
 

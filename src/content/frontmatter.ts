@@ -61,7 +61,7 @@ export function splitNote(markdown: string): SplitNote {
     lineStart = line.next;
   }
 
-  throw new FrontmatterError("frontmatterを閉じる区切り（---）がありません。");
+  throw new FrontmatterError("The frontmatter is missing its closing --- delimiter.");
 }
 
 /** プラグインが使うfrontmatterの項目 */
@@ -87,7 +87,7 @@ function optionalString(data: Record<string, unknown>, key: string): string | un
   const value = data[key];
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "string") {
-    throw new FrontmatterError(`frontmatterの${key}は文字列で指定してください。`);
+    throw new FrontmatterError(`The frontmatter ${key} must be a string.`);
   }
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
@@ -102,17 +102,17 @@ export function readFrontmatter(yaml: string | null, parseYaml: YamlParser): Not
     parsed = parseYaml(yaml);
   } catch {
     // 例外の中身にはYAMLの断片が入り得るので、そのままは出さない
-    throw new FrontmatterError("frontmatterのYAMLを解釈できませんでした。");
+    throw new FrontmatterError("Could not parse the frontmatter YAML.");
   }
 
   if (parsed === null || parsed === undefined) return { ...EMPTY_FRONTMATTER };
   if (typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new FrontmatterError("frontmatterはキーと値の並びで書いてください。");
+    throw new FrontmatterError("The frontmatter must be a list of key-value pairs.");
   }
 
   const data = parsed as Record<string, unknown>;
   if (data.draft !== undefined && data.draft !== null && typeof data.draft !== "boolean") {
-    throw new FrontmatterError("frontmatterのdraftはbooleanで指定してください。");
+    throw new FrontmatterError("The frontmatter draft must be a boolean.");
   }
 
   return {

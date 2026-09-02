@@ -28,7 +28,7 @@ class ReportModal extends Modal {
 
     const flagged = this.report.articles.filter((article) => article.issues.length > 0);
     if (flagged.length > 0) {
-      contentEl.createEl("h4", { text: `確認が必要な記事 ${flagged.length}件` });
+      contentEl.createEl("h4", { text: `${flagged.length} posts need attention` });
       const list = contentEl.createEl("ul", { cls: "nekote-blog-list" });
       appendTruncatedItems(list, flagged, MAX_LISTED_ARTICLES, (article) =>
         appendArticle(list, article),
@@ -37,11 +37,11 @@ class ReportModal extends Modal {
 
     const samples = this.report.samples ?? [];
     if (samples.length > 0) {
-      contentEl.createEl("h4", { text: "Nekote Blogからのお知らせ" });
+      contentEl.createEl("h4", { text: "Messages from Nekote Blog" });
       const list = contentEl.createEl("ul", { cls: "nekote-blog-list" });
       for (const sample of samples) {
         list.createEl("li", {
-          text: `${sample.kind === "error" ? "エラー" : "警告"}: ${
+          text: `${sample.kind === "error" ? "Error" : "Warning"}: ${
             sample.path === undefined ? "" : `${sample.path} — `
           }${sample.message}`,
         });
@@ -56,7 +56,7 @@ class ReportModal extends Modal {
 
 function appendArticle(list: HTMLElement, article: ScannedArticle): void {
   const item = list.createEl("li");
-  item.createEl("div", { text: `${article.title}（${article.path}）` });
+  item.createEl("div", { text: `${article.title} (${article.path})` });
   const issues = item.createEl("ul", { cls: "nekote-blog-list" });
   for (const issue of article.issues) {
     issues.createEl("li", {

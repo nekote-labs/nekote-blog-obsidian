@@ -40,7 +40,7 @@ class ConfirmModal extends Modal {
 
     new Setting(contentEl)
       .addButton((button) =>
-        button.setButtonText("取り消し").onClick(() => {
+        button.setButtonText("Cancel").onClick(() => {
           this.close();
         }),
       )

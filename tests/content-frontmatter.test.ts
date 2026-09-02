@@ -214,7 +214,7 @@ describe("readFrontmatter(): 解釈できないYAML", () => {
     };
 
     expect(() => readFrontmatter("token: SECRET_VALUE\n", parser)).toThrow(
-      /^frontmatterのYAMLを解釈できませんでした。$/,
+      /^Could not parse the frontmatter YAML\.$/,
     );
   });
 

@@ -83,7 +83,7 @@ export class NekoteApiClient {
       status !== "expired" &&
       status !== "approved"
     ) {
-      throw networkError("サーバーの応答を解釈できませんでした。");
+      throw networkError("Could not read the response from the server.");
     }
     return response;
   }
@@ -193,7 +193,7 @@ export class NekoteApiClient {
     throw new NekoteApiError({
       code: "protocol_version_unsupported",
       status: 426,
-      message: "このバージョンのプラグインには対応していません。プラグインを更新してください。",
+      message: "This version of the plugin is not supported. Update the plugin.",
     });
   }
 
@@ -207,12 +207,12 @@ export class NekoteApiClient {
   }): Promise<T> {
     const response = await this.request(input);
     if (response.text === "") {
-      throw networkError("サーバーの応答が空でした。");
+      throw networkError("The server returned an empty response.");
     }
     try {
       return JSON.parse(response.text) as T;
     } catch {
-      throw networkError("サーバーの応答を解釈できませんでした。");
+      throw networkError("Could not read the response from the server.");
     }
   }
 
@@ -231,7 +231,8 @@ export class NekoteApiClient {
         throw new NekoteApiError({
           code: "unauthorized",
           status: 401,
-          message: "接続が無効です。Obsidianの設定画面から接続し直してください。",
+          message:
+            "The connection is no longer valid. Reconnect from the plugin settings in Obsidian.",
         });
       }
       headers.Authorization = `Bearer ${token}`;
@@ -255,7 +256,7 @@ export class NekoteApiClient {
       response = await this.options.fetch(request);
     } catch {
       // 例外の中身にはURL等が入り得るので、そのままは出さない
-      throw networkError("Nekote Blogへ接続できませんでした。通信状況を確認してください。");
+      throw networkError("Could not reach Nekote Blog. Check your network connection.");
     }
 
     if (response.status >= 400) throw toApiError(response);
@@ -275,7 +276,7 @@ function toApiError(response: HttpResponse): NekoteApiError {
   return new NekoteApiError({
     code: parsed.code,
     status: response.status,
-    message: parsed.message ?? `サーバーからエラーが返りました（HTTP ${response.status}）。`,
+    message: parsed.message ?? `The server returned an error (HTTP ${response.status}).`,
     details: parsed.details,
     retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : undefined,
   });
