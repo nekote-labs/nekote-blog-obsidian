@@ -227,8 +227,8 @@ function render(target: SettingGroupItem): RenderedRow {
 // --- テスト -----------------------------------------------------------------
 
 describe("NekoteBlogSettingTabのセクション構成", () => {
-  it("未接続では接続・記事を置く場所・公開を出す", () => {
-    expect(visibleHeadings(createTab())).toEqual(["Connection", "Content location", "Publishing"]);
+  it("未接続では接続・記事・公開を出す", () => {
+    expect(visibleHeadings(createTab())).toEqual(["Connection", "Content", "Publishing"]);
   });
 
   it("接続の項目は接続状態で入れ替わる", () => {
@@ -272,11 +272,12 @@ describe("NekoteBlogSettingTabの詳細設定", () => {
   });
 });
 
-describe("NekoteBlogSettingTabの記事を置く場所セクション", () => {
-  it("コンテンツルートと画像の取り込み先を出す", () => {
-    expect(visibleNames(group(createTab(), "Content location"))).toEqual([
+describe("NekoteBlogSettingTabの記事セクション", () => {
+  it("コンテンツルート・画像の取り込み先・Front Matter自動挿入を出す", () => {
+    expect(visibleNames(group(createTab(), "Content"))).toEqual([
       "Content root",
       "Image import folder",
+      "Insert frontmatter into new notes automatically",
     ]);
   });
 
@@ -285,7 +286,7 @@ describe("NekoteBlogSettingTabの記事を置く場所セクション", () => {
       settings: { contentRoot: "gone", imageImportFolder: "gone/assets" },
       folderPaths: ["", "blog"],
     });
-    const location = group(tab, "Content location");
+    const location = group(tab, "Content");
 
     expect(dropdownOptions(item(location, "Content root"))).toEqual({
       __none__: "(not selected)",
@@ -302,9 +303,8 @@ describe("NekoteBlogSettingTabの記事を置く場所セクション", () => {
 });
 
 describe("NekoteBlogSettingTabの公開セクション", () => {
-  it("フロントマター自動挿入のトグルを出す", () => {
+  it("最終反映と反映ボタンを出す", () => {
     expect(visibleNames(group(createTab(), "Publishing"))).toEqual([
-      "Insert frontmatter into new notes automatically",
       "Last publish",
       "Publish to Nekote Blog",
     ]);

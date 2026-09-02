@@ -1,4 +1,4 @@
-// 設定画面。接続・接続状態の確認・接続解除と、記事を置く場所（コンテンツルート）・公開の設定を扱う。
+// 設定画面。接続・接続状態の確認・接続解除と、記事（コンテンツルート・Front Matter）・公開の設定を扱う。
 //
 // Obsidian 1.13の宣言的設定API（`getSettingDefinitions()`）で組む。状態ごとの出し分けは
 // 定義の`visible`で表し、見出し・説明文が変わる操作のあとは`update()`で定義を作り直す。
@@ -58,7 +58,7 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       this.authorizationWaitingGroup(),
       this.disconnectedGroup(),
       this.connectedGroup(),
-      this.contentLocationGroup(),
+      this.contentGroup(),
       this.publishingGroup(),
       this.advancedGroup(),
     ];
@@ -278,18 +278,18 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
     };
   }
 
-  // --- 記事を置く場所 -------------------------------------------------------
+  // --- 記事 -----------------------------------------------------------------
 
-  private contentLocationGroup(): SettingDefinitionGroup {
+  private contentGroup(): SettingDefinitionGroup {
     const t = getTranslations();
     return {
       type: "group",
-      heading: t.settings.contentLocation.heading,
+      heading: t.settings.content.heading,
       visible: () => !this.isAuthorizing(),
       items: [
         {
-          name: t.settings.contentLocation.contentRoot,
-          desc: t.settings.contentLocation.contentRootDesc,
+          name: t.settings.content.contentRoot,
+          desc: t.settings.content.contentRootDesc,
           control: {
             type: "dropdown",
             key: KEY_CONTENT_ROOT,
@@ -297,13 +297,18 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
           },
         },
         {
-          name: t.settings.contentLocation.imageImportFolder,
-          desc: t.settings.contentLocation.imageImportFolderDesc,
+          name: t.settings.content.imageImportFolder,
+          desc: t.settings.content.imageImportFolderDesc,
           control: {
             type: "dropdown",
             key: KEY_IMAGE_IMPORT_FOLDER,
             options: this.imageImportFolderOptions(),
           },
+        },
+        {
+          name: t.settings.content.autoInsertFrontmatter,
+          desc: t.settings.content.autoInsertFrontmatterDesc,
+          control: { type: "toggle", key: KEY_AUTO_INSERT_FRONTMATTER },
         },
       ],
     };
@@ -313,14 +318,14 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   private contentRootOptions(): Record<string, string> {
     const t = getTranslations();
     const options: Record<string, string> = {
-      [CONTENT_ROOT_NONE]: t.settings.contentLocation.contentRootNotSelected,
+      [CONTENT_ROOT_NONE]: t.settings.content.contentRootNotSelected,
       [CONTENT_ROOT_VAULT]: describeContentRoot(""),
     };
     const folders = this.plugin.folderPaths().filter((path) => path !== "");
     // 選択済みのフォルダが消えた・名前が変わった場合も、いま何が設定されているかは見せる
     const current = this.plugin.settings.contentRoot;
     if (current !== null && current !== "" && !folders.includes(current)) {
-      options[current] = t.settings.contentLocation.folderNotFound(current);
+      options[current] = t.settings.content.folderNotFound(current);
     }
     for (const path of folders) options[path] = path;
     return options;
@@ -330,13 +335,13 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   private imageImportFolderOptions(): Record<string, string> {
     const t = getTranslations();
     const options: Record<string, string> = {
-      [IMPORT_FOLDER_DEFAULT]: t.settings.contentLocation.imageImportFolderDefault,
+      [IMPORT_FOLDER_DEFAULT]: t.settings.content.imageImportFolderDefault,
     };
     const folders = this.plugin.folderPaths().filter((path) => path !== "");
     // 選択済みのフォルダが消えた・名前が変わった場合も、いま何が設定されているかは見せる
     const current = this.plugin.settings.imageImportFolder;
     if (current !== null && !folders.includes(current)) {
-      options[current] = t.settings.contentLocation.folderNotFound(current);
+      options[current] = t.settings.content.folderNotFound(current);
     }
     for (const path of folders) options[path] = path;
     return options;
@@ -352,11 +357,6 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
       heading: t.settings.publishing.heading,
       visible: () => !this.isAuthorizing(),
       items: [
-        {
-          name: t.settings.publishing.autoInsertFrontmatter,
-          desc: t.settings.publishing.autoInsertFrontmatterDesc,
-          control: { type: "toggle", key: KEY_AUTO_INSERT_FRONTMATTER },
-        },
         {
           name: t.settings.publishing.lastPublish,
           desc:

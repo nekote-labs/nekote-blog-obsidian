@@ -15,6 +15,12 @@ export const ja = {
     fileMenuPickCover: "Nekote Blog: カバー画像を選択",
   },
 
+  publishMenu: {
+    notConnected: "ブログと未接続です",
+    contentRootNotSelected: "コンテンツルートが未設定です",
+    fileMenuNotConnected: "Nekote Blog: ブログと未接続です",
+  },
+
   notices: {
     alreadyPublishing: "Nekote Blog: すでに反映を実行しています。",
     connectFirst: "Nekote Blog: 先に設定画面からブログと接続してください。",
@@ -63,8 +69,8 @@ export const ja = {
       obsidianSource: (revision: number, contentRoot: string) =>
         `Obsidianソース接続中 / revision ${revision} / コンテンツルート${contentRoot}`,
     },
-    contentLocation: {
-      heading: "記事を置く場所",
+    content: {
+      heading: "記事",
       contentRoot: "コンテンツルート",
       contentRootDesc:
         "公開の起点にするフォルダです。直下の posts/ が記事、pages/ が固定ページになります。選ぶまで反映できません。",
@@ -74,12 +80,12 @@ export const ja = {
         "サムネイル・カバー画像の選択で「画像ファイルを取り込む…」を選んだときの保存先フォルダです。",
       imageImportFolderDefault: "コンテンツルート直下の assets（既定）",
       folderNotFound: (path: string) => `${path}（見つかりません）`,
-    },
-    publishing: {
-      heading: "公開",
       autoInsertFrontmatter: "新規ノートにFront Matterを自動挿入",
       autoInsertFrontmatterDesc:
         "posts・pagesの中に作った空のノートや、外から移してきたノートへ、公開用のFront Matter（draft: trueなど）を自動で足します。足りないキーだけ足し、すでにある値は変えません。",
+    },
+    publishing: {
+      heading: "公開",
       lastPublish: "最終反映",
       lastPublishNever: "まだ反映していません。",
       lastPublishAt: (dateTime: string, revision: number) => `${dateTime}（revision ${revision}）`,

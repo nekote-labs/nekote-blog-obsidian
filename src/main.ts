@@ -44,6 +44,7 @@ import { FrontmatterImageModal, type FrontmatterImageKey } from "./ui/frontmatte
 import { NEKOTE_BLOG_ICON_ID, NEKOTE_BLOG_ICON_SVG } from "./ui/icons";
 import { PropertiesActions } from "./ui/properties-actions";
 import { createPublishUi } from "./ui/publish-ui";
+import { addPublishItems, type PublishMenuState } from "./ui/publish-menu";
 import { ObsidianVaultGateway } from "./vault/obsidian-gateway";
 import { isPublishTargetVaultPath } from "./vault/paths";
 
@@ -343,17 +344,24 @@ export default class NekoteBlogPlugin extends Plugin {
     return root === null || root === "" ? "assets" : `${root}/assets`;
   }
 
+  /** 反映の入口メニューが見る状態。`publish()`が弾く条件と同じ */
+  private publishMenuState(): PublishMenuState {
+    return { connected: this.connection.isConnected(), contentRoot: this.settings.contentRoot };
+  }
+
   private showRibbonMenu(evt: MouseEvent): void {
     const t = getTranslations();
     const menu = new Menu();
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.publishToNekoteBlog)
-        .setIcon("upload")
-        .onClick(() => {
+    addPublishItems(menu, {
+      state: this.publishMenuState(),
+      labels: t.publishMenu,
+      all: {
+        title: t.commands.publishToNekoteBlog,
+        onClick: () => {
           void this.publish({ kind: "all" });
-        }),
-    );
+        },
+      },
+    });
     menu.addItem((item) =>
       item
         .setTitle(t.commands.openSettings)
@@ -369,22 +377,25 @@ export default class NekoteBlogPlugin extends Plugin {
     if (!(file instanceof TFile)) return;
     if (!isPublishTargetVaultPath(file.path, this.settings.contentRoot)) return;
     const t = getTranslations();
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.fileMenuPublishNote)
-        .setIcon("file-up")
-        .onClick(() => {
+    addPublishItems(menu, {
+      state: this.publishMenuState(),
+      labels: {
+        notConnected: t.publishMenu.fileMenuNotConnected,
+        contentRootNotSelected: t.publishMenu.contentRootNotSelected,
+      },
+      note: {
+        title: t.commands.fileMenuPublishNote,
+        onClick: () => {
           void this.publish({ kind: "note", vaultPath: file.path });
-        }),
-    );
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.publishToNekoteBlog)
-        .setIcon("upload")
-        .onClick(() => {
+        },
+      },
+      all: {
+        title: t.commands.publishToNekoteBlog,
+        onClick: () => {
           void this.publish({ kind: "all" });
-        }),
-    );
+        },
+      },
+    });
     menu.addItem((item) =>
       item
         .setTitle(t.commands.fileMenuPickThumbnail)
@@ -441,22 +452,22 @@ export default class NekoteBlogPlugin extends Plugin {
     if (file === null) return;
     const t = getTranslations();
     const menu = new Menu();
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.publishNote)
-        .setIcon("file-up")
-        .onClick(() => {
+    addPublishItems(menu, {
+      state: this.publishMenuState(),
+      labels: t.publishMenu,
+      note: {
+        title: t.commands.publishNote,
+        onClick: () => {
           void this.publish({ kind: "note", vaultPath: file.path });
-        }),
-    );
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.publishToNekoteBlog)
-        .setIcon("upload")
-        .onClick(() => {
+        },
+      },
+      all: {
+        title: t.commands.publishToNekoteBlog,
+        onClick: () => {
           void this.publish({ kind: "all" });
-        }),
-    );
+        },
+      },
+    });
     menu.addItem((item) =>
       item
         .setTitle(t.commands.pickThumbnail)

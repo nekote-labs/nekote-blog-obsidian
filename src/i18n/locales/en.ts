@@ -23,6 +23,14 @@ export const en = {
     fileMenuPickCover: "Nekote Blog: Select cover image",
   },
 
+  /** 反映の入口メニュー（リボン・ノートヘッダー・ファイル右クリック）で、反映できない理由として出すラベル */
+  publishMenu: {
+    notConnected: "Not connected to a blog",
+    contentRootNotSelected: "Content root not selected",
+    /** ファイル右クリックは他のプラグインと共有のメニューなので、どのプラグインの表示かを接頭語で示す */
+    fileMenuNotConnected: "Nekote Blog: Not connected to a blog",
+  },
+
   /** `main.ts`が出す通知 */
   notices: {
     alreadyPublishing: "Nekote Blog: Already publishing.",
@@ -74,8 +82,8 @@ export const en = {
       obsidianSource: (revision: number, contentRoot: string) =>
         `Obsidian source connected / revision ${revision} / content root ${contentRoot}`,
     },
-    contentLocation: {
-      heading: "Content location",
+    content: {
+      heading: "Content",
       contentRoot: "Content root",
       contentRootDesc:
         "The folder publishing starts from. Directly inside it, posts/ holds posts and pages/ holds pages. You cannot publish until you choose one.",
@@ -85,12 +93,12 @@ export const en = {
         'The folder where "Import an image file…" saves images for thumbnails and cover images.',
       imageImportFolderDefault: "assets under the content root (default)",
       folderNotFound: (path: string) => `${path} (not found)`,
-    },
-    publishing: {
-      heading: "Publishing",
       autoInsertFrontmatter: "Insert frontmatter into new notes automatically",
       autoInsertFrontmatterDesc:
         "Adds publishing frontmatter such as draft: true to empty notes created in posts or pages, and to notes moved into them. Only missing keys are added.",
+    },
+    publishing: {
+      heading: "Publishing",
       lastPublish: "Last publish",
       lastPublishNever: "Not published yet.",
       lastPublishAt: (dateTime: string, revision: number) => `${dateTime} (revision ${revision})`,
