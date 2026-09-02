@@ -9,6 +9,7 @@
 // `baseRevision`不一致（409）はここでは自動で上書きしない。呼び出し側が利用者へ
 // 差分を見せて確認を取り、新しいbaseで作り直す。
 import type { NekoteApiClient } from "../api/client";
+import { getTranslations } from "../i18n";
 import { NekoteApiError } from "../protocol/errors";
 import type {
   MissingBlob,
@@ -64,7 +65,7 @@ export interface PushInput {
 }
 
 export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOutcome> {
-  deps.report({ phase: "begin", message: "Checking what to publish…" });
+  deps.report({ phase: "begin", message: getTranslations().push.begin });
   let begin = await deps.client.beginPush(input.manifest);
   deps.onPushStarted(begin.pushId);
   if (deps.signal.aborted) return { status: "cancelled" };
@@ -114,7 +115,7 @@ async function uploadBlobs(
     if (deps.signal.aborted) return false;
     deps.report({
       phase: "upload",
-      message: "Sending files…",
+      message: getTranslations().push.upload,
       done: index,
       total: missing.length,
     });
@@ -123,7 +124,7 @@ async function uploadBlobs(
   if (missing.length > 0) {
     deps.report({
       phase: "upload",
-      message: "Sending files…",
+      message: getTranslations().push.upload,
       done: missing.length,
       total: missing.length,
     });
@@ -163,7 +164,7 @@ async function finalize(
   let retries = 0;
   for (;;) {
     if (deps.signal.aborted) return false;
-    deps.report({ phase: "finalize", message: "Verifying files…" });
+    deps.report({ phase: "finalize", message: getTranslations().push.finalize });
 
     let response;
     try {
@@ -191,7 +192,7 @@ async function finalize(
 
     deps.report({
       phase: "finalize",
-      message: "Verifying files…",
+      message: getTranslations().push.finalize,
       done: response.verification.verifiedEntryCount,
       total: response.verification.entryCount,
     });
@@ -217,7 +218,7 @@ async function pollUntilApplied(deps: PushDeps, pushId: string): Promise<PushOut
     if (Date.now() >= deadline) return { status: "applying", result };
     if (deps.signal.aborted) return { status: "cancelled" };
 
-    deps.report({ phase: "apply", message: "Publishing on Nekote Blog…" });
+    deps.report({ phase: "apply", message: getTranslations().push.apply });
     if (!(await sleepUnlessAborted(deps, interval))) return { status: "cancelled" };
     interval = Math.min(POLL_MAX_INTERVAL_MS, Math.round(interval * 1.5));
     result = await deps.client.getPushStatus(pushId);

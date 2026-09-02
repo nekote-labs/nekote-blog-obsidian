@@ -4,15 +4,11 @@
 // 書き込む値はノート起点の相対path。サーバーは本文画像と同じく
 // `decodeURIComponent()`で解決するため、`encodePathForMarkdownUrl()`で符号化する。
 import { FuzzySuggestModal, Notice, TFile, type App, type Vault } from "obsidian";
+import { getTranslations } from "../i18n";
 import { classifyAssetPath } from "../normalize/assets";
 import { encodePathForMarkdownUrl, normalizeVaultPath, relativePathFrom } from "../vault/paths";
 
 export type FrontmatterImageKey = "thumbnail" | "cover";
-
-const KEY_LABELS: Record<FrontmatterImageKey, string> = {
-  thumbnail: "thumbnail",
-  cover: "cover image",
-};
 
 type PickerItem = { kind: "import" } | { kind: "asset"; file: TFile };
 
@@ -27,7 +23,7 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
     this.note = note;
     this.key = key;
     this.importFolder = importFolder;
-    this.setPlaceholder(`Select an image for the ${KEY_LABELS[key]}…`);
+    this.setPlaceholder(getTranslations().imageModal[key].placeholder);
   }
 
   getItems(): PickerItem[] {
@@ -39,7 +35,7 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
   }
 
   getItemText(item: PickerItem): string {
-    return item.kind === "import" ? "Import an image file…" : item.file.path;
+    return item.kind === "import" ? getTranslations().imageModal.importItem : item.file.path;
   }
 
   onChooseItem(item: PickerItem): void {
@@ -63,17 +59,17 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
         },
       );
     } catch {
-      new Notice(`Nekote Blog: Could not set the ${KEY_LABELS[this.key]}.`);
+      new Notice(getTranslations().imageModal[this.key].failed);
       return;
     }
-    new Notice(`Nekote Blog: Set the ${KEY_LABELS[this.key]}.`);
+    new Notice(getTranslations().imageModal[this.key].applied);
   }
 
   private async importThenApply(): Promise<void> {
     const picked = await pickLocalImage();
     if (picked === null) return;
     if (classifyAssetPath(picked.name) !== "image") {
-      new Notice("Nekote Blog: Supported formats are PNG, JPG, JPEG, GIF, WebP and AVIF.");
+      new Notice(getTranslations().imageModal.unsupportedFormat);
       return;
     }
     try {
@@ -82,7 +78,7 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
       const created = await this.app.vault.createBinary(path, picked.data);
       await this.applyAsset(created);
     } catch {
-      new Notice("Nekote Blog: Could not import the image.");
+      new Notice(getTranslations().imageModal.importFailed);
     }
   }
 }

@@ -8,6 +8,7 @@ import {
   Platform,
   Plugin,
   TFile,
+  getLanguage,
   parseYaml,
   requestUrl,
   type TAbstractFile,
@@ -24,6 +25,7 @@ import {
   needsFrontmatterTemplate,
 } from "./content/frontmatter-template";
 import { randomBase64Url } from "./crypto/hash";
+import { getTranslations, setLanguageSource } from "./i18n";
 import { NekoteBlogSettingTab } from "./settings/settings-tab";
 import {
   DEFAULT_SETTINGS,
@@ -56,6 +58,8 @@ export default class NekoteBlogPlugin extends Plugin {
   });
 
   async onload(): Promise<void> {
+    // コマンド名の登録より前に言語を決める
+    setLanguageSource(() => getLanguage());
     this.settings = parsePluginSettings(await this.loadData());
     this.secrets = new SecretStore(this.app.secretStorage);
     // 前回の認可が中断されたまま残ることがある。次の認可は必ず作り直すので消してよい
@@ -77,23 +81,25 @@ export default class NekoteBlogPlugin extends Plugin {
     });
 
     this.addSettingTab(new NekoteBlogSettingTab(this.app, this));
+
+    const t = getTranslations();
     this.addCommand({
       id: "open-settings",
-      name: "Open settings",
+      name: t.commands.openSettings,
       callback: () => {
         this.openSettings();
       },
     });
     this.addCommand({
       id: "publish",
-      name: "Publish",
+      name: t.commands.publish,
       callback: () => {
         void this.publish();
       },
     });
     this.addCommand({
       id: "insert-frontmatter",
-      name: "Insert frontmatter",
+      name: t.commands.insertFrontmatter,
       checkCallback: (checking) =>
         this.runWithPublishTarget(checking, (file) => {
           void this.insertFrontmatter(file);
@@ -101,7 +107,7 @@ export default class NekoteBlogPlugin extends Plugin {
     });
     this.addCommand({
       id: "pick-thumbnail",
-      name: "Select thumbnail image",
+      name: t.commands.pickThumbnail,
       checkCallback: (checking) =>
         this.runWithPublishTarget(checking, (file) => {
           this.openImagePicker(file, "thumbnail");
@@ -109,7 +115,7 @@ export default class NekoteBlogPlugin extends Plugin {
     });
     this.addCommand({
       id: "pick-cover",
-      name: "Select cover image",
+      name: t.commands.pickCover,
       checkCallback: (checking) =>
         this.runWithPublishTarget(checking, (file) => {
           this.openImagePicker(file, "cover");
@@ -165,12 +171,13 @@ export default class NekoteBlogPlugin extends Plugin {
    * 同じPush世代へ違うmanifestを送ることになる）
    */
   async publish(): Promise<void> {
+    const t = getTranslations();
     if (this.publishing !== null) {
-      new Notice("Nekote Blog: Already publishing.");
+      new Notice(t.notices.alreadyPublishing);
       return;
     }
     if (!this.connection.isConnected()) {
-      new Notice("Nekote Blog: Connect to your blog from the settings first.", 8000);
+      new Notice(t.notices.connectFirst, 8000);
       return;
     }
 
@@ -251,15 +258,12 @@ export default class NekoteBlogPlugin extends Plugin {
 
   /** コマンドからの挿入。既存ノートにも使えるよう、欠けているキーだけ足す */
   private async insertFrontmatter(file: TFile): Promise<void> {
+    const t = getTranslations();
     try {
       const changed = await this.insertTemplateIfMissing(file);
-      new Notice(
-        changed
-          ? "Nekote Blog: Frontmatter inserted."
-          : "Nekote Blog: Frontmatter is already there.",
-      );
+      new Notice(changed ? t.notices.frontmatterInserted : t.notices.frontmatterAlreadyPresent);
     } catch {
-      new Notice("Nekote Blog: Could not insert frontmatter.");
+      new Notice(t.notices.frontmatterInsertFailed);
     }
   }
 
@@ -295,10 +299,11 @@ export default class NekoteBlogPlugin extends Plugin {
   }
 
   private showRibbonMenu(evt: MouseEvent): void {
+    const t = getTranslations();
     const menu = new Menu();
     menu.addItem((item) =>
       item
-        .setTitle("Publish to Nekote Blog")
+        .setTitle(t.commands.publishToNekoteBlog)
         .setIcon("upload")
         .onClick(() => {
           void this.publish();
@@ -306,7 +311,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Open settings")
+        .setTitle(t.commands.openSettings)
         .setIcon("settings")
         .onClick(() => {
           this.openSettings();
@@ -318,9 +323,10 @@ export default class NekoteBlogPlugin extends Plugin {
   private extendFileMenu(menu: Menu, file: TAbstractFile): void {
     if (!(file instanceof TFile)) return;
     if (!isPublishTargetVaultPath(file.path, this.settings.contentRoot)) return;
+    const t = getTranslations();
     menu.addItem((item) =>
       item
-        .setTitle("Publish to Nekote Blog")
+        .setTitle(t.commands.publishToNekoteBlog)
         .setIcon("upload")
         .onClick(() => {
           void this.publish();
@@ -328,7 +334,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Nekote Blog: Select thumbnail image")
+        .setTitle(t.commands.fileMenuPickThumbnail)
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "thumbnail");
@@ -336,7 +342,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Nekote Blog: Select cover image")
+        .setTitle(t.commands.fileMenuPickCover)
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "cover");
@@ -380,10 +386,11 @@ export default class NekoteBlogPlugin extends Plugin {
   private showNoteMenu(evt: MouseEvent, view: MarkdownView): void {
     const file = view.file;
     if (file === null) return;
+    const t = getTranslations();
     const menu = new Menu();
     menu.addItem((item) =>
       item
-        .setTitle("Publish to Nekote Blog")
+        .setTitle(t.commands.publishToNekoteBlog)
         .setIcon("upload")
         .onClick(() => {
           void this.publish();
@@ -391,7 +398,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Select thumbnail image")
+        .setTitle(t.commands.pickThumbnail)
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "thumbnail");
@@ -399,7 +406,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Select cover image")
+        .setTitle(t.commands.pickCover)
         .setIcon("image")
         .onClick(() => {
           this.openImagePicker(file, "cover");
@@ -407,7 +414,7 @@ export default class NekoteBlogPlugin extends Plugin {
     );
     menu.addItem((item) =>
       item
-        .setTitle("Insert frontmatter")
+        .setTitle(t.commands.insertFrontmatter)
         .setIcon("list-plus")
         .onClick(() => {
           void this.insertFrontmatter(file);
@@ -451,9 +458,7 @@ export default class NekoteBlogPlugin extends Plugin {
       }
     ).setting;
     if (typeof internal?.open !== "function" || typeof internal.openTabById !== "function") {
-      new Notice(
-        "Nekote Blog: Open settings > Community plugins > Nekote Blog to change the settings.",
-      );
+      new Notice(getTranslations().notices.openSettingsManually);
       return;
     }
     internal.open();

@@ -6,6 +6,7 @@
 //
 // 行頭の空白が4個以上の`>`はインデントコードブロックと区別できないため対象外にする。
 import type { IssueCollector } from "../content/issues";
+import { getTranslations } from "../i18n";
 import { joinBodyLines, splitBodyLines } from "./segments";
 import { containerFenceFor, escapeBracketLabel } from "./text";
 
@@ -41,8 +42,6 @@ const CALLOUT_TYPES = new Map<string, NekoteCalloutType>([
   ["error", "alert"],
   ["bug", "alert"],
 ]);
-
-const NESTED_WARNING = "Nested callouts were rendered as regular blockquotes.";
 
 /**
  * 引用1階層分。先頭の空白は0〜3個まで、`>`の直後の空白は1つだけ落とす。
@@ -155,9 +154,7 @@ function resolveType(identifier: string, issues: IssueCollector): NekoteCalloutT
   if (type !== undefined) return type;
   // 識別子が無い`[!]`は伝える種類が無いので黙ってnoteにする
   if (identifier !== "") {
-    issues.warning(
-      `This callout type is not supported, so it was rendered as a note: ${identifier}`,
-    );
+    issues.warning(getTranslations().normalize.unsupportedCalloutType(identifier));
   }
   return "note";
 }
@@ -169,7 +166,7 @@ function rewriteNestedCallout(line: string, issues: IssueCollector): string {
   if (markers === "") return line;
   const head = parseCalloutHead(rest);
   if (head === null) return line;
-  issues.warning(NESTED_WARNING);
+  issues.warning(getTranslations().normalize.nestedCallout);
   return markers + titleOf(head) + eol;
 }
 

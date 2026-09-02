@@ -6,6 +6,7 @@
 //
 // 参照先pathの収集はここでは行わない（正規化後の本文からまとめて集める）。
 import type { IssueCollector } from "../content/issues";
+import { getTranslations } from "../i18n";
 import {
   baseNameOf,
   encodePathForMarkdownUrl,
@@ -25,8 +26,6 @@ const WIKILINK_PATTERN = /(!?)\[\[(.*?)\]\]/g;
 
 /** `![[image.png|300]]`・`![[image.png|300x200]]`の表示サイズ */
 const SIZE_DISPLAY_PATTERN = /^\d+(x\d+)?$/;
-
-const NOTE_EMBED_WARNING = "A note embed was not expanded and became a link instead.";
 
 interface WikilinkParts {
   /** `|`より前の原文。ラベルの既定値に使うのでtrimしない */
@@ -93,15 +92,14 @@ function convertWikilink(
   // なってしまうので、ここで同じノートの中への参照として処理する
   if (parts.linkpath === "") return convertSelfLink(parts, embed, issues);
 
+  const t = getTranslations().normalize;
   const file = context.resolveLinkpath(parts.linkpath);
   if (file === null) {
-    issues.warning(`Could not resolve the link target: ${parts.linkpath}`);
+    issues.warning(t.unresolvedLink(parts.linkpath));
     return displayTextOf(parts);
   }
   if (!isCanonicalPath(file.path)) {
-    issues.warning(
-      `The path contains characters that cannot be used, so the reference was dropped: ${file.path}`,
-    );
+    issues.warning(t.unusablePathCharacters(file.path));
     return displayTextOf(parts);
   }
 
@@ -113,16 +111,17 @@ function convertWikilink(
 
 /** `[[#見出し]]`・`[[#^ブロック]]`（同じノートの中への参照） */
 function convertSelfLink(parts: WikilinkParts, embed: boolean, issues: IssueCollector): string {
-  if (embed) issues.warning(NOTE_EMBED_WARNING);
+  const t = getTranslations().normalize;
+  if (embed) issues.warning(t.noteEmbed);
   const label = parts.display ?? parts.subpathText;
 
   if (parts.block) {
-    issues.warning("A block reference cannot be displayed, so only its text was kept.");
+    issues.warning(t.blockReferenceTextOnly);
     return escapeInlineText(label);
   }
   const anchor = headingAnchorId(parts.subpathText);
   if (anchor === null) {
-    issues.warning(`Could not resolve the link to the heading: ${parts.subpathText}`);
+    issues.warning(t.unresolvedHeading(parts.subpathText));
     return escapeInlineText(label);
   }
   return markdownLink(label, `#${anchor}`);
@@ -136,28 +135,28 @@ function convertNoteLink(
   context: NormalizeContext,
   issues: IssueCollector,
 ): string {
+  const t = getTranslations().normalize;
   const articlePath = toContentRootRelative(filePath, context.contentRoot);
   if (articlePath === null || !isArticlePath(articlePath)) {
-    issues.warning(
-      `A link to a note that is not published was replaced with text only: ${filePath}`,
-    );
+    issues.warning(t.unpublishedNoteLink(filePath));
     return displayTextOf(parts);
   }
 
-  if (embed) issues.warning(NOTE_EMBED_WARNING);
+  if (embed) issues.warning(t.noteEmbed);
   return markdownLink(parts.display ?? parts.target, `${url}${noteFragment(parts, issues)}`);
 }
 
 /** 記事へのリンクに付けるフラグメント。付けられないときは空文字 */
 function noteFragment(parts: WikilinkParts, issues: IssueCollector): string {
   if (parts.subpath === null) return "";
+  const t = getTranslations().normalize;
   if (parts.block) {
-    issues.warning("A block reference became a link to the top of the post.");
+    issues.warning(t.blockReferenceToTop);
     return "";
   }
   const anchor = headingAnchorId(parts.subpathText);
   if (anchor === null) {
-    issues.warning(`Could not resolve the link to the heading: ${parts.subpathText}`);
+    issues.warning(t.unresolvedHeading(parts.subpathText));
     return "";
   }
   return `#${anchor}`;
@@ -170,19 +169,20 @@ function convertAssetLink(
   url: string,
   issues: IssueCollector,
 ): string {
+  const t = getTranslations().normalize;
   const kind = classifyAssetPath(filePath);
   if (kind === "svg") {
-    issues.warning(`SVG cannot be published, so only its text was kept: ${filePath}`);
+    issues.warning(t.svgTextOnly(filePath));
     return displayTextOf(parts);
   }
   if (!isTransferableAsset(kind)) {
-    issues.warning(`This file format is not supported, so only its text was kept: ${filePath}`);
+    issues.warning(t.unsupportedFormatTextOnly(filePath));
     return displayTextOf(parts);
   }
 
   // アセットのURLにフラグメントは付けない（PDFのページ指定等に対応する表現がない）
   if (parts.subpath !== null) {
-    issues.warning(`Nekote has no equivalent for this option, so it was ignored: ${parts.subpath}`);
+    issues.warning(t.ignoredOption(parts.subpath));
   }
   if (!embed) return markdownLink(parts.display ?? parts.target, url);
   return `!${markdownLink(embedAssetLabel(parts, filePath, issues), url)}`;
@@ -191,7 +191,7 @@ function convertAssetLink(
 function embedAssetLabel(parts: WikilinkParts, filePath: string, issues: IssueCollector): string {
   if (parts.display === null) return baseNameOf(filePath);
   if (SIZE_DISPLAY_PATTERN.test(parts.display)) {
-    issues.warning("Image size options are not applied.");
+    issues.warning(getTranslations().normalize.imageSizeIgnored);
     return baseNameOf(filePath);
   }
   return parts.display;

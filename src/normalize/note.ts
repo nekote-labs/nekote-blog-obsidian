@@ -11,6 +11,7 @@ import {
   type YamlParser,
 } from "../content/frontmatter";
 import { IssueCollector, type ArticleIssue } from "../content/issues";
+import { getTranslations } from "../i18n";
 import { MAX_ARTICLE_ASSET_PATHS } from "../protocol/limits";
 import { baseNameOf, directoryOf, isCanonicalPath, resolveRelativePath } from "../vault/paths";
 import { classifyAssetPath } from "./assets";
@@ -107,19 +108,16 @@ function declaredAssetPaths(
   frontmatterAssets: readonly string[],
   issues: IssueCollector,
 ): string[] {
+  const t = getTranslations().normalize;
   const declared = unique(bodyAssetPaths).slice(0, MAX_ARTICLE_ASSET_PATHS);
   if (unique(bodyAssetPaths).length > MAX_ARTICLE_ASSET_PATHS) {
-    issues.error(
-      `This note references more than ${MAX_ARTICLE_ASSET_PATHS} assets. Reduce the number of referenced assets.`,
-    );
+    issues.error(t.tooManyAssets(MAX_ARTICLE_ASSET_PATHS));
   }
 
   for (const path of frontmatterAssets) {
     if (declared.includes(path)) continue;
     if (declared.length >= MAX_ARTICLE_ASSET_PATHS) {
-      issues.warning(
-        "The referenced asset limit was reached, so the frontmatter image was skipped.",
-      );
+      issues.warning(t.assetLimitReached);
       break;
     }
     declared.push(path);
@@ -142,9 +140,10 @@ function resolveFrontmatterImage(
 ): string | null {
   if (value === undefined) return null;
 
+  const t = getTranslations().normalize;
   if (classifyReferenceUrl(value) !== "relative") {
     if (isHttpsUrl(value)) return null;
-    issues.warning(`The frontmatter ${key} has a URL that cannot be used, so it was skipped.`);
+    issues.warning(t.frontmatterImageUnusableUrl(key));
     return null;
   }
 
@@ -152,23 +151,21 @@ function resolveFrontmatterImage(
   const resolved =
     decoded === null ? null : resolveRelativePath(directoryOf(context.articleVaultPath), decoded);
   if (resolved === null) {
-    issues.warning(`Could not resolve the frontmatter ${key} image, so it was skipped: ${value}`);
+    issues.warning(t.frontmatterImageUnresolved(key, value));
     return null;
   }
   if (classifyAssetPath(resolved) !== "image") {
-    issues.warning(`The frontmatter ${key} must be a raster image, so it was skipped: ${value}`);
+    issues.warning(t.frontmatterImageNotRaster(key, value));
     return null;
   }
   if (context.findByPath(resolved) === null) {
-    issues.warning(`The frontmatter ${key} image was not found, so it was skipped: ${resolved}`);
+    issues.warning(t.frontmatterImageNotFound(key, resolved));
     return null;
   }
   // 正規形でないpathはmanifest**全体**が拒否される。1件の画像のために記事を送れなく
   // しないよう、ここで落とす（本文由来の参照も`collectReferences()`が同じ扱いにする）
   if (!isCanonicalPath(resolved)) {
-    issues.warning(
-      `The path contains characters that cannot be used, so the reference was dropped: ${resolved}`,
-    );
+    issues.warning(t.unusablePathCharacters(resolved));
     return null;
   }
   return resolved;
@@ -179,5 +176,7 @@ function unique(paths: readonly string[]): string[] {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof FrontmatterError ? error.message : "Could not read the frontmatter.";
+  return error instanceof FrontmatterError
+    ? error.message
+    : getTranslations().normalize.frontmatterUnreadable;
 }
