@@ -19,7 +19,7 @@
 
 | # | 何を | どの端末で | どう測るか | 暫定の前提 |
 | --- | --- | --- | --- | --- |
-| 1 | `App.secretStorage` の実挙動。**端末間**（Obsidian Sync / iCloud経由）と**同一端末上の別vault間**の両方で共有されないこと | macOS・iOS・Android | 最小プラグインで `setSecret` / `getSecret` を往復させ、(a) 同じvaultを別端末へ同期して値が来ないこと、(b) 同じ端末に2つのvaultを作って一方の値が他方から読めないことを確認する。(b) はモバイルで値が混ざるという未解決のフォーラム報告があり、公式ドキュメントにも記載が無い | `minAppVersion: 1.11.4`。端末トークンがvault・端末ローカルに閉じる前提で `src/storage/secrets.ts` へ置いている |
+| 1 | `App.secretStorage` の実挙動。**端末間**（Obsidian Sync / iCloud経由）と**同一端末上の別vault間**の両方で共有されないこと | macOS・iOS・Android | 最小プラグインで `setSecret` / `getSecret` を往復させ、(a) 同じvaultを別端末へ同期して値が来ないこと、(b) 同じ端末に2つのvaultを作って一方の値が他方から読めないことを確認する。(b) はモバイルで値が混ざるという未解決のフォーラム報告があり、公式ドキュメントにも記載が無い | `minAppVersion: 1.13.0`。端末トークンがvault・端末ローカルに閉じる前提で `src/storage/secrets.ts` へ置いている |
 | 2 | `requestUrl()` でのArrayBuffer送信 | iOS・Android実機 | 10MiB・20MiBのバイナリをPUTし、成功率・所要時間・アプリのメモリ挙動を見る | 1ファイル上限は画像10MiB・動画/PDF 20MiB。厳しければ上限を下げるのではなくchunk uploadを足す。`NekoteApiClient.uploadBlob()` が該当 |
 | 3 | `crypto.subtle` のAndroid実機挙動 | Android実機 | 上の「確認済み」と同じ手順をAndroidで行う | iOSと同じに動く前提 |
 | 4 | モバイルOSによる中断 | iOS・Android実機 | 認可のpoll中・upload中にアプリをバックグラウンドへ送り、復帰後に続きから進めることを確認する | バックグラウンド完走は保証しない。端末ローカルの `pendingPushId` から再開する（`src/sync/publish.ts` の `reportResumedPush()`）|

@@ -9,7 +9,7 @@ written back into your vault by the publish step.
 
 ## Requirements
 
-- Obsidian 1.11.4 or later (the plugin stores its device token in `App.secretStorage`).
+- Obsidian 1.13.0 or later.
 - A Nekote Blog account and a blog. See [Disclosures](#disclosures) below.
 - Desktop (macOS, Windows, Linux) and mobile (iOS, Android). The plugin uses no Node.js or Electron
   API.
