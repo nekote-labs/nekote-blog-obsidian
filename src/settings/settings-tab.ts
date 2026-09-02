@@ -49,10 +49,15 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   }
 
   getSettingDefinitions(): SettingDefinitionItem[] {
-    // グループの並びは常に固定し、出し分けは`visible`で行う（再描画でDOMを使い回せる）
+    // グループの並びは常に固定し、出し分けは`visible`で行う（再描画でDOMを使い回せる）。
+    // 状態で先頭の行が入れ替わるセクションは、項目単位の`visible`ではなくグループごと分ける。
+    // 隠れた項目もDOMに残るため、Obsidianの`.setting-item:first-child`（区切り線を消す指定）が
+    // 隠れた行に当たってしまい、見えている先頭行の上に線が出る
     return [
-      this.authorizationGroup(),
-      this.connectionGroup(),
+      this.authorizationStartingGroup(),
+      this.authorizationWaitingGroup(),
+      this.disconnectedGroup(),
+      this.connectedGroup(),
       this.contentLocationGroup(),
       this.publishingGroup(),
       this.advancedGroup(),
@@ -124,23 +129,30 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   // --- 承認待ち -------------------------------------------------------------
 
   /**
-   * 認可の進行中に出すグループ。開始直後（user code待ち）と承認待ちを`visible`で出し分ける。
+   * 認可の開始直後（user code待ち）に出すグループ。
    * この間は接続以外のセクションを出さない
    */
-  private authorizationGroup(): SettingDefinitionGroup {
+  private authorizationStartingGroup(): SettingDefinitionGroup {
     const t = getTranslations();
-    const starting = () => this.authorizationController !== null && this.prompt === null;
-    const waiting = () => this.prompt !== null;
     return {
       type: "group",
       heading: t.settings.authorization.heading,
-      visible: () => this.isAuthorizing(),
+      visible: () => this.authorizationController !== null && this.prompt === null,
+      items: [descriptionItem(t.settings.authorization.starting), this.cancelAuthorizationItem()],
+    };
+  }
+
+  /** 承認待ちに出すグループ。user codeと承認ページへの導線を並べる */
+  private authorizationWaitingGroup(): SettingDefinitionGroup {
+    const t = getTranslations();
+    return {
+      type: "group",
+      heading: t.settings.authorization.heading,
+      visible: () => this.prompt !== null,
       items: [
-        descriptionItem(t.settings.authorization.starting, starting),
-        descriptionItem(t.settings.authorization.checkCode, waiting),
+        descriptionItem(t.settings.authorization.checkCode),
         {
           name: "",
-          visible: waiting,
           render: (setting) => {
             // 再描画で二重に生えないよう、行の中身ごと作り直す
             setting.infoEl.empty();
@@ -153,7 +165,6 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
         {
           name: t.settings.authorization.approvalPage,
           desc: this.prompt?.verificationUri ?? "",
-          visible: waiting,
           render: (setting) => {
             setting.addButton((button) =>
               button.setButtonText(t.settings.authorization.openAgain).onClick(() => {
@@ -163,44 +174,46 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
             );
           },
         },
-        {
-          name: "",
-          render: (setting) => {
-            setting.addButton((button) =>
-              button.setButtonText(t.settings.authorization.cancel).onClick(() => {
-                this.cancelAuthorization();
-                this.update();
-              }),
-            );
-          },
-        },
+        this.cancelAuthorizationItem(),
       ],
+    };
+  }
+
+  /** 認可を中止する行。開始直後と承認待ちの両方の末尾に置く */
+  private cancelAuthorizationItem(): SettingDefinition {
+    const t = getTranslations();
+    return {
+      name: "",
+      render: (setting) => {
+        setting.addButton((button) =>
+          button.setButtonText(t.settings.authorization.cancel).onClick(() => {
+            this.cancelAuthorization();
+            this.update();
+          }),
+        );
+      },
     };
   }
 
   // --- 接続 -----------------------------------------------------------------
 
-  private connectionGroup(): SettingDefinitionGroup {
+  /** 未接続のときに出すグループ。端末名を入れて接続を始める */
+  private disconnectedGroup(): SettingDefinitionGroup {
     const t = getTranslations();
-    const connected = () => this.plugin.connection.isConnected();
-    const disconnected = () => !connected();
-    const hint = this.plugin.settings.connection;
     return {
       type: "group",
       heading: t.settings.connection.heading,
-      visible: () => !this.isAuthorizing(),
+      visible: () => !this.isAuthorizing() && !this.plugin.connection.isConnected(),
       items: [
-        descriptionItem(t.settings.connection.intro, disconnected),
+        descriptionItem(t.settings.connection.intro),
         {
           name: t.settings.connection.deviceName,
           desc: t.settings.connection.deviceNameDesc,
-          visible: disconnected,
           control: { type: "text", key: KEY_DEVICE_NAME, placeholder: "Obsidian" },
         },
         {
           name: t.settings.connection.connect,
           desc: t.settings.connection.connectDesc,
-          visible: disconnected,
           render: (setting) => {
             setting.addButton((button) =>
               button
@@ -212,23 +225,33 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
             );
           },
         },
+      ],
+    };
+  }
+
+  /** 接続中に出すグループ。接続先の確認・状態の再取得・接続解除を並べる */
+  private connectedGroup(): SettingDefinitionGroup {
+    const t = getTranslations();
+    const hint = this.plugin.settings.connection;
+    return {
+      type: "group",
+      heading: t.settings.connection.heading,
+      visible: () => !this.isAuthorizing() && this.plugin.connection.isConnected(),
+      items: [
         {
           name: t.settings.connection.connectedBlog,
           desc:
             hint === null
               ? t.settings.connection.connectedBlogUnknown
               : t.settings.connection.blog(hint.blog.title, hint.blog.subdomain),
-          visible: connected,
         },
         {
           name: t.settings.connection.thisDevice,
           desc: hint === null ? t.settings.connection.thisDeviceUnknown : hint.device.name,
-          visible: connected,
         },
         {
           name: t.settings.connection.status,
           desc: describeConnection(this.connection),
-          visible: connected,
           render: (setting) => {
             setting.addButton((button) =>
               button.setButtonText(t.settings.connection.refreshButton).onClick(() => {
@@ -240,7 +263,6 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
         {
           name: t.settings.connection.disconnect,
           desc: t.settings.connection.disconnectDesc,
-          visible: connected,
           render: (setting) => {
             setting.addButton((button) =>
               button
@@ -485,10 +507,9 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
 }
 
 /** 見出しの直下へ置く説明文。設定行ではなく段落として出す */
-function descriptionItem(text: string, visible: () => boolean): SettingDefinition {
+function descriptionItem(text: string): SettingDefinition {
   return {
     name: "",
-    visible,
     render: (setting) => {
       // 再描画で二重に生えないよう、行の中身ごと作り直す
       setting.infoEl.empty();

@@ -104,10 +104,12 @@ function isVisible(item: { visible?: boolean | (() => boolean) }): boolean {
   return typeof visible === "function" ? visible() : visible;
 }
 
+/** 表示されているグループを見出しで引く。同じ見出しのグループが状態で入れ替わるため`visible`で絞る */
 function group(tab: NekoteBlogSettingTab, heading: string): SettingDefinitionGroup {
   const found = tab
     .getSettingDefinitions()
     .filter(isGroup)
+    .filter(isVisible)
     .find((g) => g.heading === heading);
   if (found === undefined) throw new Error(`グループが無い: ${heading}`);
   return found;
