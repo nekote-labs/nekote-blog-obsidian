@@ -11,6 +11,7 @@
 // - `baseRevision`不一致は自動で上書きしない
 import type { NekoteApiClient } from "../api/client";
 import type { YamlParser } from "../content/frontmatter";
+import { getTranslations } from "../i18n";
 import { NekoteApiError } from "../protocol/errors";
 import type {
   AppliedManifestResponse,
@@ -81,16 +82,17 @@ export interface PublishDeps {
 }
 
 export async function publish(deps: PublishDeps): Promise<void> {
+  const t = getTranslations().publish;
   const contentRoot = deps.settings().contentRoot;
   if (contentRoot === null) {
-    deps.ui.notice("Select a content root in the plugin settings first.", 8000);
+    deps.ui.notice(t.selectContentRootFirst, 8000);
     return;
   }
 
   try {
     if (await reportResumedPush(deps)) return;
 
-    deps.ui.progress("Checking connection…");
+    deps.ui.progress(t.checkingConnection);
     const connection = await deps.client.getConnection();
     const vaultId = await resolveVaultId(deps, connection.source);
     if (vaultId === null) return;
@@ -121,7 +123,7 @@ async function reportResumedPush(deps: PublishDeps): Promise<boolean> {
   const pushId = deps.secrets.getPendingPushId();
   if (pushId === null) return false;
 
-  deps.ui.progress("Checking the status of the previous publish…");
+  deps.ui.progress(getTranslations().publish.checkingPreviousPublish);
   // 再開経路は`GET /connection`を呼んでいないので、反映先のブログは示せない
   const outcome = await resumePush(pushDeps(deps, null, null), pushId);
   if (outcome === null) {
@@ -134,6 +136,7 @@ async function reportResumedPush(deps: PublishDeps): Promise<boolean> {
 }
 
 async function scan_(deps: PublishDeps, contentRoot: string): Promise<ScanResult | null> {
+  const t = getTranslations().publish;
   try {
     return await scanVault(
       {
@@ -144,7 +147,7 @@ async function scan_(deps: PublishDeps, contentRoot: string): Promise<ScanResult
           deps.ui.confirm(scanConfirmRequest("asset", contentRoot, amount)),
         onProgress: (progress) =>
           deps.ui.progress(
-            progress.phase === "notes" ? "Reading notes…" : "Reading referenced assets…",
+            progress.phase === "notes" ? t.readingNotes : t.readingAssets,
             `${progress.done} / ${progress.total}`,
           ),
       },
@@ -161,17 +164,17 @@ function scanConfirmRequest(
   contentRoot: string,
   amount: ScanAmount,
 ): ConfirmRequest {
-  const target = kind === "note" ? "notes" : "referenced assets";
+  const t = getTranslations().publish.scanConfirm;
+  const isNote = kind === "note";
   return {
-    title: `There are a lot of ${target}`,
+    title: isNote ? t.noteTitle : t.assetTitle,
     paragraphs: [
-      `The content root "${describeContentRoot(contentRoot)}" contains ` +
-        `${amount.count} ${target} (${formatBytes(amount.bytes)}).`,
-      kind === "note"
-        ? "Continuing will read all of these notes. Make sure the content root is correct."
-        : "Continuing will read all of these assets.",
+      isNote
+        ? t.noteAmount(describeContentRoot(contentRoot), amount.count, formatBytes(amount.bytes))
+        : t.assetAmount(describeContentRoot(contentRoot), amount.count, formatBytes(amount.bytes)),
+      isNote ? t.noteWarning : t.assetWarning,
     ],
-    confirmLabel: "Continue",
+    confirmLabel: t.confirmLabel,
   };
 }
 
@@ -180,19 +183,22 @@ function publishConfirmRequest(
   scan: ScanResult,
   blog: ConnectionBlog,
 ): ConfirmRequest {
+  const t = getTranslations().publish.confirmPublish;
   const { summary } = scan;
   return {
-    title: "Publish to Nekote Blog",
+    title: t.title,
     paragraphs: [
       describeBlog(blog),
-      `Publishing ${summary.markdown.count} notes ` +
-        `(${summary.publishedCount} published, ${summary.draftCount} draft) and ` +
-        `${summary.asset.count} referenced assets from the content root ` +
-        `"${describeContentRoot(contentRoot)}".`,
-      "Unchanged files are not sent. Notes removed since the previous publish are also " +
-        "deleted from the blog.",
+      t.summary(
+        summary.markdown.count,
+        summary.publishedCount,
+        summary.draftCount,
+        summary.asset.count,
+        describeContentRoot(contentRoot),
+      ),
+      t.note,
     ],
-    confirmLabel: "Publish",
+    confirmLabel: t.confirmLabel,
   };
 }
 
@@ -203,6 +209,7 @@ function publishConfirmRequest(
  * ソースを切り替える。**自動で置き換えず**、影響を伝えてから確認する
  */
 async function resolveVaultId(deps: PublishDeps, source: ConnectionSource): Promise<string | null> {
+  const t = getTranslations().publish;
   const local = deps.settings().vaultId;
 
   if (source.kind !== "obsidian") {
@@ -216,20 +223,15 @@ async function resolveVaultId(deps: PublishDeps, source: ConnectionSource): Prom
 
   if (local === null) {
     const ok = await deps.ui.confirm({
-      title: "Treat this as the connected vault?",
-      paragraphs: [
-        "An Obsidian vault is already connected to this blog.",
-        "If you treat the vault on this device as the same vault, publishing continues from " +
-          `the existing revision (currently ${source.appliedRevision}). ` +
-          "If this is a different vault, cancel here.",
-      ],
+      title: t.sameVault.title,
+      paragraphs: [t.sameVault.intro, t.sameVault.detail(source.appliedRevision)],
       sections: [
         {
-          title: "Content root on the server",
+          title: t.sameVault.serverContentRoot,
           items: [describeContentRoot(source.contentRoot)],
         },
       ],
-      confirmLabel: "Continue as the same vault",
+      confirmLabel: t.sameVault.confirmLabel,
     });
     if (!ok) return null;
     await deps.updateSettings({ vaultId: source.vaultId });
@@ -237,13 +239,9 @@ async function resolveVaultId(deps: PublishDeps, source: ConnectionSource): Prom
   }
 
   const ok = await deps.ui.confirm({
-    title: "This is not the connected vault",
-    paragraphs: [
-      "A different vault is connected to this blog. Publishing from the vault on this device " +
-        "deletes all existing posts first, then rebuilds them from the contents of this vault.",
-      "If the rebuild fails partway through, your blog is temporarily left with no posts.",
-    ],
-    confirmLabel: "Replace with this vault",
+    title: t.differentVault.title,
+    paragraphs: [t.differentVault.intro, t.differentVault.warning],
+    confirmLabel: t.differentVault.confirmLabel,
     danger: true,
   });
   return ok ? local : null;
@@ -255,14 +253,14 @@ async function confirmContentRootChange(
   contentRoot: string,
 ): Promise<boolean> {
   if (source.kind !== "obsidian" || source.contentRoot === contentRoot) return true;
+  const t = getTranslations().publish.contentRootChange;
   return deps.ui.confirm({
-    title: "Change the content root",
+    title: t.title,
     paragraphs: [
-      "The starting point for publishing changes from " +
-        `"${describeContentRoot(source.contentRoot)}" to "${describeContentRoot(contentRoot)}".`,
-      "Notes outside the new starting point are deleted from the published posts.",
+      t.detail(describeContentRoot(source.contentRoot), describeContentRoot(contentRoot)),
+      t.warning,
     ],
-    confirmLabel: "Change and continue",
+    confirmLabel: t.confirmLabel,
     danger: true,
   });
 }
@@ -282,7 +280,8 @@ async function confirmServerRevision(
   if (source.appliedRevision === lastPush.revision) return true;
 
   const applied = await deps.client.getAppliedManifest();
-  return deps.ui.confirm(overwriteRequest(scan, applied, "Published from another device"));
+  const t = getTranslations().publish;
+  return deps.ui.confirm(overwriteRequest(scan, applied, t.overwrite.publishedFromAnotherDevice));
 }
 
 function overwriteRequest(
@@ -290,21 +289,17 @@ function overwriteRequest(
   applied: AppliedManifestResponse,
   title: string,
 ): ConfirmRequest {
+  const t = getTranslations().publish.overwrite;
   const diff = diffAgainstApplied(scan.entries, applied.entries);
   return {
     title,
-    paragraphs: [
-      `The current revision on Nekote Blog is ${applied.appliedRevision}, ` +
-        "which does not match the record on this device.",
-      "Continuing replaces the published posts with the current contents of this vault. " +
-        "To keep the changes made on the other device, sync your vault first and try again.",
-    ],
+    paragraphs: [t.revisionMismatch(applied.appliedRevision), t.warning],
     sections: [
-      { title: `Added ${countFiles(diff.added.length)}`, items: diff.added },
-      { title: `Updated ${countFiles(diff.updated.length)}`, items: diff.updated },
-      { title: `Deleted ${countFiles(diff.deleted.length)}`, items: diff.deleted },
+      { title: t.added(diff.added.length), items: diff.added },
+      { title: t.updated(diff.updated.length), items: diff.updated },
+      { title: t.deleted(diff.deleted.length), items: diff.deleted },
     ],
-    confirmLabel: "Overwrite with this vault",
+    confirmLabel: t.confirmLabel,
     danger: true,
   };
 }
@@ -334,8 +329,9 @@ async function push(
     if (!(error instanceof NekoteApiError) || error.code !== "revision_conflict") throw error;
     // 409。**自動でやり直さない**。差分を見せて、利用者が決めたときだけ最新baseで送る
     const applied = await deps.client.getAppliedManifest();
+    const t = getTranslations().publish;
     const ok = await deps.ui.confirm(
-      overwriteRequest(scan, applied, "Another publish was applied first"),
+      overwriteRequest(scan, applied, t.overwrite.anotherPublishApplied),
     );
     if (!ok) return { status: "cancelled" };
     return start(applied.appliedRevision);
@@ -365,48 +361,60 @@ function pushDeps(
   };
 }
 
-const CONFIRMATION_REASONS: Record<string, string> = {
-  initial_connect: "This is the first publish to this blog.",
-  source_switch:
-    "Switching from another content source to Obsidian. The existing posts are rebuilt.",
-  content_root_changed: "The content root changes.",
-  large_delete: "A large number of posts will be deleted.",
-  large_change: "A large number of posts will be added or updated.",
-  large_upload: "A large amount of file data will be sent.",
-};
+/** サーバーが返す`confirmationReasons`のコードを説明文にする */
+function describeConfirmationReason(reason: string): string {
+  const t = getTranslations().publish.reasons;
+  switch (reason) {
+    case "initial_connect":
+      return t.initialConnect;
+    case "source_switch":
+      return t.sourceSwitch;
+    case "content_root_changed":
+      return t.contentRootChanged;
+    case "large_delete":
+      return t.largeDelete;
+    case "large_change":
+      return t.largeChange;
+    case "large_upload":
+      return t.largeUpload;
+    default:
+      return t.unknown;
+  }
+}
 
 function preflightRequest(
   begin: PushBeginResponse,
   scan: ScanResult | null,
   blog: ConnectionBlog | null,
 ): ConfirmRequest {
+  const t = getTranslations().publish.preflight;
   const { preflight } = begin;
   const sections: ConfirmSection[] = [];
   if (scan !== null) {
     sections.push({
-      title: `${scan.summary.publishedCount} published / ${scan.summary.draftCount} draft`,
+      title: t.articles(scan.summary.publishedCount, scan.summary.draftCount),
       items: scan.articles.map(
-        (article) => `${article.draft ? "[Draft] " : ""}${article.title} (${article.path})`,
+        (article) =>
+          `${article.draft ? t.draftPrefix : ""}${t.article(article.title, article.path)}`,
       ),
     });
   }
 
   return {
-    title: preflight.initialConnect
-      ? "Confirm your first publish"
-      : "Review what will be published",
+    title: preflight.initialConnect ? t.initialTitle : t.title,
     paragraphs: [
       ...(blog === null ? [] : [describeBlog(blog)]),
-      ...preflight.confirmationReasons.map(
-        (reason) => CONFIRMATION_REASONS[reason] ?? "This publish needs your confirmation.",
+      ...preflight.confirmationReasons.map((reason) => describeConfirmationReason(reason)),
+      t.counts(
+        preflight.addedCount,
+        preflight.updatedCount,
+        preflight.deletedCount,
+        preflight.unchangedCount,
       ),
-      `Posts: ${preflight.addedCount} added / ${preflight.updatedCount} updated / ` +
-        `${preflight.deletedCount} deleted / ${preflight.unchangedCount} unchanged`,
-      `Files to send: ${preflight.missingBlobCount} ` +
-        `(${formatBytes(preflight.missingBlobBytes)})`,
+      t.filesToSend(preflight.missingBlobCount, formatBytes(preflight.missingBlobBytes)),
     ],
     sections,
-    confirmLabel: "Publish",
+    confirmLabel: t.confirmLabel,
     danger: preflight.deletedCount > 0 || preflight.initialConnect,
   };
 }
@@ -416,6 +424,7 @@ async function reportOutcome(
   scan: ScanResult | null,
   outcome: PushOutcome,
 ): Promise<void> {
+  const t = getTranslations().publish;
   const articles = scan?.articles ?? [];
 
   switch (outcome.status) {
@@ -430,7 +439,7 @@ async function reportOutcome(
       });
       deps.ui.report({
         outcome: "applied",
-        headline: `Published (revision ${outcome.revision})`,
+        headline: t.report.applied(outcome.revision),
         paragraphs: describeCounts(outcome.result),
         articles,
         samples: outcome.result.samples,
@@ -440,11 +449,8 @@ async function reportOutcome(
       deps.secrets.clearPendingPushId();
       deps.ui.report({
         outcome: "failed",
-        headline: "Could not publish",
-        paragraphs: [
-          "The published posts are left as they were. Fix the problem and run it again.",
-          ...describeCounts(outcome.result),
-        ],
+        headline: t.report.failed,
+        paragraphs: [t.report.failedDetail, ...describeCounts(outcome.result)],
         articles,
         samples: outcome.result.samples,
       });
@@ -452,16 +458,14 @@ async function reportOutcome(
     case "applying":
       deps.ui.report({
         outcome: "applying",
-        headline: "Publishing on Nekote Blog",
-        paragraphs: [
-          'Sending finished. Run "Publish to Nekote Blog" again to check whether it completed.',
-        ],
+        headline: t.report.applying,
+        paragraphs: [t.report.applyingDetail],
         articles,
         samples: outcome.result.samples,
       });
       return;
     case "cancelled":
-      deps.ui.notice("Publish cancelled.");
+      deps.ui.notice(t.cancelled);
   }
 }
 
@@ -475,11 +479,12 @@ function describeCounts(result: PushStatusResponse): string[] {
 }
 
 function reportFailure(deps: PublishDeps, error: unknown): void {
+  const t = getTranslations().publish;
   if (error instanceof ScanAbortedError) {
     deps.ui.report({
       outcome: "failed",
-      headline: "Publish stopped",
-      paragraphs: [error.message, "The published posts are unchanged."],
+      headline: t.report.stopped,
+      paragraphs: [error.message, t.report.stoppedDetail],
       articles: [],
       samples: undefined,
     });
@@ -488,27 +493,20 @@ function reportFailure(deps: PublishDeps, error: unknown): void {
 
   if (error instanceof NekoteApiError) {
     deps.ui.notice(
-      error.code === "push_in_progress"
-        ? "The previous publish is still being processed on the server. It stays for a short " +
-            "while even right after you cancel it, so wait a moment and run it again."
-        : `Nekote Blog: ${error.message}`,
+      error.code === "push_in_progress" ? t.pushInProgress : `Nekote Blog: ${error.message}`,
       10000,
     );
     return;
   }
 
-  deps.ui.notice("Nekote Blog: Something went wrong.", 10000);
+  deps.ui.notice(t.unexpectedError, 10000);
 }
 
 /** 間違ったブログへ反映しないよう、確認の先頭に出す */
 function describeBlog(blog: ConnectionBlog): string {
-  return `Publishing to: ${blog.title} (${blog.subdomain}.nekote.blog)`;
-}
-
-function countFiles(count: number): string {
-  return `${count} ${count === 1 ? "file" : "files"}`;
+  return getTranslations().publish.blog(blog.title, blog.subdomain);
 }
 
 export function describeContentRoot(contentRoot: string): string {
-  return contentRoot === "" ? "(vault root)" : contentRoot;
+  return contentRoot === "" ? getTranslations().publish.vaultRoot : contentRoot;
 }

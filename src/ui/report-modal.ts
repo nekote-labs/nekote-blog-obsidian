@@ -3,6 +3,7 @@
 // Noticeは数秒で消えるので、直すべき記事が複数あるときに読み切れない。
 // 記事エラーがある結果はモーダルで残す。
 import { Modal, type App } from "obsidian";
+import { getTranslations } from "../i18n";
 import type { PublishReport } from "../sync/publish";
 import type { ScannedArticle } from "../sync/scan";
 import { appendTruncatedItems } from "./truncated-list";
@@ -19,6 +20,7 @@ class ReportModal extends Modal {
   }
 
   onOpen(): void {
+    const t = getTranslations().reportModal;
     this.setTitle(this.report.headline);
     const { contentEl } = this;
 
@@ -28,7 +30,7 @@ class ReportModal extends Modal {
 
     const flagged = this.report.articles.filter((article) => article.issues.length > 0);
     if (flagged.length > 0) {
-      contentEl.createEl("h4", { text: `${flagged.length} posts need attention` });
+      contentEl.createEl("h4", { text: t.needAttention(flagged.length) });
       const list = contentEl.createEl("ul", { cls: "nekote-blog-list" });
       appendTruncatedItems(list, flagged, MAX_LISTED_ARTICLES, (article) =>
         appendArticle(list, article),
@@ -37,13 +39,12 @@ class ReportModal extends Modal {
 
     const samples = this.report.samples ?? [];
     if (samples.length > 0) {
-      contentEl.createEl("h4", { text: "Messages from Nekote Blog" });
+      contentEl.createEl("h4", { text: t.messages });
       const list = contentEl.createEl("ul", { cls: "nekote-blog-list" });
       for (const sample of samples) {
+        const label = sample.kind === "error" ? t.error : t.warning;
         list.createEl("li", {
-          text: `${sample.kind === "error" ? "Error" : "Warning"}: ${
-            sample.path === undefined ? "" : `${sample.path} — `
-          }${sample.message}`,
+          text: `${label}: ${sample.path === undefined ? "" : `${sample.path} — `}${sample.message}`,
         });
       }
     }
@@ -56,7 +57,7 @@ class ReportModal extends Modal {
 
 function appendArticle(list: HTMLElement, article: ScannedArticle): void {
   const item = list.createEl("li");
-  item.createDiv({ text: `${article.title} (${article.path})` });
+  item.createDiv({ text: getTranslations().reportModal.article(article.title, article.path) });
   const issues = item.createEl("ul", { cls: "nekote-blog-list" });
   for (const issue of article.issues) {
     issues.createEl("li", {

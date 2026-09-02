@@ -3,6 +3,7 @@
 // 「取り消し」で閉じたのか確定したのかを取り違えると、確認なしにPushが進んでしまう。
 // **閉じ方によらず既定は`false`**にしてある（×やEscで閉じたら取り消し）。
 import { Modal, Setting, type App } from "obsidian";
+import { getTranslations } from "../i18n";
 import type { ConfirmRequest } from "../sync/publish";
 import { appendTruncatedItems } from "./truncated-list";
 
@@ -40,7 +41,7 @@ class ConfirmModal extends Modal {
 
     new Setting(contentEl)
       .addButton((button) =>
-        button.setButtonText("Cancel").onClick(() => {
+        button.setButtonText(getTranslations().confirmModal.cancel).onClick(() => {
           this.close();
         }),
       )

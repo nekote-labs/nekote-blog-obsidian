@@ -2,6 +2,7 @@
 //
 // トークンは`Authorization: Bearer`にだけ載せ、**URL・ログ・エラー文言へ出さない**。
 import { headerValue, type HttpFetch, type HttpRequest, type HttpResponse } from "./http";
+import { getTranslations } from "../i18n";
 import { NekoteApiError, networkError, parseApiErrorBody } from "../protocol/errors";
 import { PROTOCOL_MAJOR } from "../protocol/limits";
 import { isSupportedProtocolMajor } from "../protocol/version";
@@ -83,7 +84,7 @@ export class NekoteApiClient {
       status !== "expired" &&
       status !== "approved"
     ) {
-      throw networkError("Could not read the response from the server.");
+      throw networkError(getTranslations().api.unreadableResponse);
     }
     return response;
   }
@@ -193,7 +194,7 @@ export class NekoteApiClient {
     throw new NekoteApiError({
       code: "protocol_version_unsupported",
       status: 426,
-      message: "This version of the plugin is not supported. Update the plugin.",
+      message: getTranslations().api.unsupportedVersion,
     });
   }
 
@@ -207,12 +208,12 @@ export class NekoteApiClient {
   }): Promise<T> {
     const response = await this.request(input);
     if (response.text === "") {
-      throw networkError("The server returned an empty response.");
+      throw networkError(getTranslations().api.emptyResponse);
     }
     try {
       return JSON.parse(response.text) as T;
     } catch {
-      throw networkError("Could not read the response from the server.");
+      throw networkError(getTranslations().api.unreadableResponse);
     }
   }
 
@@ -231,8 +232,7 @@ export class NekoteApiClient {
         throw new NekoteApiError({
           code: "unauthorized",
           status: 401,
-          message:
-            "The connection is no longer valid. Reconnect from the plugin settings in Obsidian.",
+          message: getTranslations().api.unauthorized,
         });
       }
       headers.Authorization = `Bearer ${token}`;
@@ -256,7 +256,7 @@ export class NekoteApiClient {
       response = await this.options.fetch(request);
     } catch {
       // 例外の中身にはURL等が入り得るので、そのままは出さない
-      throw networkError("Could not reach Nekote Blog. Check your network connection.");
+      throw networkError(getTranslations().api.unreachable);
     }
 
     if (response.status >= 400) throw toApiError(response);
@@ -276,7 +276,7 @@ function toApiError(response: HttpResponse): NekoteApiError {
   return new NekoteApiError({
     code: parsed.code,
     status: response.status,
-    message: parsed.message ?? `The server returned an error (HTTP ${response.status}).`,
+    message: parsed.message ?? getTranslations().api.httpError(response.status),
     details: parsed.details,
     retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : undefined,
   });

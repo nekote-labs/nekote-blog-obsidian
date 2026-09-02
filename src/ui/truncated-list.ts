@@ -1,4 +1,5 @@
 // モーダルの一覧描画で共通の「limit件まで表示し、超過分は件数だけ見せる」処理。
+import { getTranslations } from "../i18n";
 
 export function appendTruncatedItems<T>(
   list: HTMLElement,
@@ -10,7 +11,7 @@ export function appendTruncatedItems<T>(
   if (items.length > limit) {
     list.createEl("li", {
       cls: "nekote-blog-description",
-      text: `and ${items.length - limit} more`,
+      text: getTranslations().list.andMore(items.length - limit),
     });
   }
 }

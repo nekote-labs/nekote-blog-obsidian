@@ -11,6 +11,7 @@ import {
   type DeviceAuthorizationPrompt,
   type DeviceAuthorizationResult,
 } from "../auth/device-authorization";
+import { getTranslations } from "../i18n";
 import { NekoteApiError } from "../protocol/errors";
 import type { ConnectionResponse } from "../protocol/types";
 import type { ConnectionHint } from "../storage/plugin-data";
@@ -94,7 +95,10 @@ export class ConnectionService {
         revokedOnServer = true;
       } else {
         revokedOnServer = false;
-        reason = error instanceof NekoteApiError ? error.message : "Could not reach the server.";
+        reason =
+          error instanceof NekoteApiError
+            ? error.message
+            : getTranslations().connection.unreachable;
       }
     }
 

@@ -7,6 +7,7 @@
 // だけに絞る。`tags`・`date`・`emoji`・`category`はサーバーが検証し、結果は
 // `GET /pushes/{pushId}`の記事別エラーで返る。ここで二重に規則を持つと、
 // 片方だけが古くなったときに利用者を迷わせる。
+import { getTranslations } from "../i18n";
 
 /** YAMLの解釈。実体はObsidianの`parseYaml()`（`src/main.ts`が渡す） */
 export type YamlParser = (yaml: string) => unknown;
@@ -61,7 +62,7 @@ export function splitNote(markdown: string): SplitNote {
     lineStart = line.next;
   }
 
-  throw new FrontmatterError("The frontmatter is missing its closing --- delimiter.");
+  throw new FrontmatterError(getTranslations().frontmatter.missingClosingDelimiter);
 }
 
 /** プラグインが使うfrontmatterの項目 */
@@ -87,7 +88,7 @@ function optionalString(data: Record<string, unknown>, key: string): string | un
   const value = data[key];
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "string") {
-    throw new FrontmatterError(`The frontmatter ${key} must be a string.`);
+    throw new FrontmatterError(getTranslations().frontmatter.mustBeString(key));
   }
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
@@ -97,22 +98,23 @@ function optionalString(data: Record<string, unknown>, key: string): string | un
 export function readFrontmatter(yaml: string | null, parseYaml: YamlParser): NoteFrontmatter {
   if (yaml === null || yaml.trim() === "") return { ...EMPTY_FRONTMATTER };
 
+  const t = getTranslations().frontmatter;
   let parsed: unknown;
   try {
     parsed = parseYaml(yaml);
   } catch {
     // 例外の中身にはYAMLの断片が入り得るので、そのままは出さない
-    throw new FrontmatterError("Could not parse the frontmatter YAML.");
+    throw new FrontmatterError(t.invalidYaml);
   }
 
   if (parsed === null || parsed === undefined) return { ...EMPTY_FRONTMATTER };
   if (typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new FrontmatterError("The frontmatter must be a list of key-value pairs.");
+    throw new FrontmatterError(t.mustBeMapping);
   }
 
   const data = parsed as Record<string, unknown>;
   if (data.draft !== undefined && data.draft !== null && typeof data.draft !== "boolean") {
-    throw new FrontmatterError("The frontmatter draft must be a boolean.");
+    throw new FrontmatterError(t.draftMustBeBoolean);
   }
 
   return {

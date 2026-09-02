@@ -9,14 +9,18 @@
 // MutationObserverで見張って入れ直す。本文編集のたびに発火するので、CodeMirrorの
 // 本文DOM（`.cm-content`）内だけの変化は無視し、残りはframeあたり1回に間引く。
 import { setIcon, type MarkdownView, type TFile } from "obsidian";
+import { getTranslations } from "../i18n";
 import type { FrontmatterImageKey } from "./frontmatter-image-modal";
 
 const ROW_CLASS = "nekote-blog-property-actions";
 
-const BUTTONS: ReadonlyArray<{ key: FrontmatterImageKey; label: string }> = [
-  { key: "thumbnail", label: "Select thumbnail image" },
-  { key: "cover", label: "Select cover image" },
-];
+const BUTTON_KEYS: readonly FrontmatterImageKey[] = ["thumbnail", "cover"];
+
+/** コマンド名と同じ文を使う。表示時に引いて、起動時の言語で固定しない */
+function buttonLabel(key: FrontmatterImageKey): string {
+  const t = getTranslations().commands;
+  return key === "thumbnail" ? t.pickThumbnail : t.pickCover;
+}
 
 export class PropertiesActions {
   private readonly openImagePicker: (file: TFile, key: FrontmatterImageKey) => void;
@@ -76,10 +80,10 @@ export class PropertiesActions {
   }
 
   private buildRow(row: HTMLElement, view: MarkdownView): void {
-    for (const { key, label } of BUTTONS) {
+    for (const key of BUTTON_KEYS) {
       const button = row.createEl("button", { cls: "nekote-blog-property-action", type: "button" });
       setIcon(button.createSpan(), "image");
-      button.appendText(label);
+      button.appendText(buttonLabel(key));
       button.addEventListener("click", () => {
         // ファイルはクリック時点で取る（同じviewが別ノートへ切り替わるため）
         const file = view.file;

@@ -14,6 +14,7 @@
 import type { YamlParser } from "../content/frontmatter";
 import type { ArticleIssue } from "../content/issues";
 import { sha256Hex } from "../crypto/hash";
+import { getTranslations } from "../i18n";
 import { classifyAssetPath } from "../normalize/assets";
 import type { NormalizeContext } from "../normalize/context";
 import { normalizeNote, type NormalizedNote } from "../normalize/note";
@@ -44,7 +45,7 @@ export class ScanAbortedError extends Error {
 /** 利用者が続行確認で取り消した */
 export class ScanCancelledError extends Error {
   constructor() {
-    super("Publish cancelled.");
+    super(getTranslations().publish.cancelled);
     this.name = "ScanCancelledError";
   }
 }
@@ -104,14 +105,13 @@ interface NoteTarget {
 }
 
 export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<ScanResult> {
+  const t = getTranslations().scan;
   const { vault } = deps;
   const byPath = indexFiles(vault.listFiles());
   const targets = collectNoteTargets(byPath, contentRoot);
 
   if (targets.length > MAX_MANIFEST_MARKDOWN_ENTRIES) {
-    throw new ScanAbortedError(
-      `There are ${targets.length} Markdown files to publish, which is over the limit of ${MAX_MANIFEST_MARKDOWN_ENTRIES}.`,
-    );
+    throw new ScanAbortedError(t.tooManyMarkdown(targets.length, MAX_MANIFEST_MARKDOWN_ENTRIES));
   }
 
   const markdownAmount: ScanAmount = {
@@ -136,7 +136,7 @@ export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<Sc
     const bytes = new TextEncoder().encode(note.markdown);
     if (bytes.byteLength > MAX_MARKDOWN_FILE_BYTES) {
       throw new ScanAbortedError(
-        `This Markdown file is over the ${formatBytes(MAX_MARKDOWN_FILE_BYTES)} limit: ${target.articlePath}`,
+        t.markdownTooLarge(formatBytes(MAX_MARKDOWN_FILE_BYTES), target.articlePath),
       );
     }
 
@@ -166,9 +166,7 @@ export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<Sc
 
   const assetFiles = resolveAssets(referencedAssets, byPath);
   if (assetFiles.length > MAX_MANIFEST_ASSET_ENTRIES) {
-    throw new ScanAbortedError(
-      `There are ${assetFiles.length} referenced assets, which is over the limit of ${MAX_MANIFEST_ASSET_ENTRIES}.`,
-    );
+    throw new ScanAbortedError(t.tooManyAssets(assetFiles.length, MAX_MANIFEST_ASSET_ENTRIES));
   }
   for (const file of assetFiles) assertAssetSize(file, file.size);
 
@@ -199,10 +197,7 @@ export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<Sc
   const sorted = sortManifestEntries(entries);
   const collision = findCaseCollision(sorted);
   if (collision !== null) {
-    throw new ScanAbortedError(
-      "Paths that differ only in letter case cannot be published together. Rename one of them: " +
-        `${collision.first} / ${collision.second}`,
-    );
+    throw new ScanAbortedError(t.caseCollision(collision.first, collision.second));
   }
 
   return {
@@ -234,8 +229,7 @@ function indexFiles(files: readonly VaultFileRef[]): Map<string, VaultFileRef> {
     const existing = byPath.get(file.path);
     if (existing !== undefined) {
       throw new ScanAbortedError(
-        "Two files end up with the same name after Unicode normalization. Rename one of them: " +
-          `${existing.vaultPath} / ${file.vaultPath}`,
+        getTranslations().scan.normalizationCollision(existing.vaultPath, file.vaultPath),
       );
     }
     byPath.set(file.path, file);
@@ -255,7 +249,7 @@ function collectNoteTargets(
 
     // 公開対象と分かったあとにpathを検査する。ここで黙って除外すると削除になる
     if (!isCanonicalPath(articlePath)) {
-      throw new ScanAbortedError(`The path contains unsupported characters: ${file.vaultPath}`);
+      throw new ScanAbortedError(getTranslations().scan.unsupportedPathCharacters(file.vaultPath));
     }
     targets.push({ file, articlePath });
   }
@@ -333,17 +327,14 @@ async function readAssetBytes(vault: VaultGateway, file: VaultFileRef): Promise<
 }
 
 function unreadable(file: VaultFileRef): string {
-  return (
-    `Could not read this file: ${file.path}\n` +
-    "Cloud sync may not have finished. Download all files to this device, then try again."
-  );
+  return getTranslations().scan.unreadable(file.path);
 }
 
 function assertAssetSize(file: VaultFileRef, bytes: number): void {
   const limit =
     classifyAssetPath(file.path) === "image" ? MAX_IMAGE_FILE_BYTES : MAX_OTHER_ASSET_FILE_BYTES;
   if (bytes > limit) {
-    throw new ScanAbortedError(`This asset is over the ${formatBytes(limit)} limit: ${file.path}`);
+    throw new ScanAbortedError(getTranslations().scan.assetTooLarge(formatBytes(limit), file.path));
   }
 }
 
@@ -380,9 +371,7 @@ async function assertSameContent(
   sha256: string,
 ): Promise<ArrayBuffer> {
   if ((await sha256Hex(bytes)) !== sha256) {
-    throw new ScanAbortedError(
-      'The vault changed while publishing. Run "Publish to Nekote Blog" again.',
-    );
+    throw new ScanAbortedError(getTranslations().scan.vaultChanged);
   }
   // 呼び出し元はbuffer全体を占める新規のviewを渡す契約。部分viewを渡すと余分な内容まで返る
   return bytes.buffer;

@@ -12,6 +12,7 @@
 // 同じ割り切り）。逆に`](…)`はラベル側の括弧の対応を見ずに拾うので、リンクでない文章を
 // 参照と読むことがある。
 import type { IssueCollector } from "../content/issues";
+import { getTranslations } from "../i18n";
 import {
   directoryOf,
   isArticlePath,
@@ -85,7 +86,7 @@ export function collectReferences(
 
     const vaultPath = resolveRelativePath(baseDirectory, target);
     if (vaultPath === null) {
-      issues.warning(`A reference that points outside the vault cannot be imported: ${found.text}`);
+      issues.warning(getTranslations().normalize.outsideVault(found.text));
       continue;
     }
 
@@ -181,23 +182,21 @@ function collectAsset(
   issues: IssueCollector,
   into: Set<string>,
 ): void {
+  const t = getTranslations().normalize;
   if (context.findByPath(vaultPath) === null) {
-    issues.error(`A file referenced by this note was not found: ${vaultPath}`);
+    issues.error(t.referencedFileNotFound(vaultPath));
     return;
   }
 
   const kind = classifyAssetPath(vaultPath);
   if (isTransferableAsset(kind)) {
     if (!isCanonicalPath(vaultPath)) {
-      issues.warning(
-        `The path contains characters that cannot be used, so the reference was dropped: ${vaultPath}`,
-      );
+      issues.warning(t.unusablePathCharacters(vaultPath));
       return;
     }
     into.add(vaultPath);
     return;
   }
   // 対応していない形式はサーバーも原文のまま残すので、指摘は出さない
-  if (kind === "svg")
-    issues.warning(`SVG cannot be published, so the reference was dropped: ${vaultPath}`);
+  if (kind === "svg") issues.warning(t.svgDropped(vaultPath));
 }

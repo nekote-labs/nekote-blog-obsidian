@@ -30,6 +30,9 @@ and how much data will be sent. It asks for an extra confirmation on the first p
 content root changes, when many files would be deleted, and when another device has published since
 your last run.
 
+The text the plugin shows follows your Obsidian display language. English and Japanese are
+available; any other language falls back to English.
+
 ## Disclosures
 
 ### An account is required

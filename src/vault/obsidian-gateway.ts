@@ -1,6 +1,7 @@
 // `VaultGateway`のObsidian実装。Obsidian APIに触れるのはこのファイルと
 // 設定画面・UI・エントリだけに閉じてある。
 import type { App, TFile } from "obsidian";
+import { getTranslations } from "../i18n";
 import { normalizeVaultPath } from "./paths";
 import type { VaultFileRef, VaultGateway } from "./gateway";
 
@@ -53,7 +54,7 @@ export class ObsidianVaultGateway implements VaultGateway {
   private resolve(file: VaultFileRef): TFile {
     const found = this.app.vault.getFileByPath(file.vaultPath);
     if (found === null) {
-      throw new Error(`Could not read this file: ${file.path}`);
+      throw new Error(getTranslations().vault.unreadableFile(file.path));
     }
     return found;
   }
