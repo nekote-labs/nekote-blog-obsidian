@@ -2,6 +2,12 @@
 //
 // 一文が一エントリ。断片を連結して文を作らない（言語によって語順が変わる）。
 // 差し込みのある文は関数にして、呼び出し側が整形済みの値を渡す。
+
+/** 件数に合わせた単数形・複数形 */
+function plural(count: number, singular: string, pluralForm: string): string {
+  return count === 1 ? singular : pluralForm;
+}
+
 export const en = {
   /** コマンドパレットのコマンド名とメニュー項目 */
   commands: {
@@ -43,7 +49,7 @@ export const en = {
       deviceName: "Device name",
       deviceNameDesc: "Shown on the approval page and in the device list on your dashboard.",
       connect: "Connect to Nekote Blog",
-      connectDesc: "This connects only this device. Connect again on each other device.",
+      connectDesc: "This connects only this device. Each device needs its own connection.",
       connectButton: "Connect",
       connectedBlog: "Connected blog",
       connectedBlogUnknown: "Connection details are not available.",
@@ -54,7 +60,7 @@ export const en = {
       refreshButton: "Refresh",
       disconnect: "Disconnect",
       disconnectDesc:
-        "Revokes the token for this device. Published posts stay online. To publish again, connect once more.",
+        "Removes this device's access to your blog. Published posts stay online. To publish again, connect once more.",
       disconnectButton: "Disconnect",
     },
     /** 接続状態の説明文（`describeConnection()`） */
@@ -64,7 +70,7 @@ export const en = {
       otherSource: (type: string) =>
         `Another source (${type}) is connected. Your first publish will switch it over.`,
       obsidianSource: (revision: number, contentRoot: string) =>
-        `Obsidian source connected / revision ${revision} / content root "${contentRoot}"`,
+        `Obsidian source connected / revision ${revision} / content root ${contentRoot}`,
     },
     contentLocation: {
       heading: "Content location",
@@ -82,12 +88,13 @@ export const en = {
       heading: "Publishing",
       autoInsertFrontmatter: "Insert frontmatter into new notes automatically",
       autoInsertFrontmatterDesc:
-        "Adds publishing frontmatter such as draft: true to empty notes created under posts or pages.",
+        "Adds publishing frontmatter such as draft: true to empty notes created in posts or pages, and to notes moved into them. Only missing keys are added.",
       lastPublish: "Last publish",
       lastPublishNever: "Not published yet.",
       lastPublishAt: (dateTime: string, revision: number) => `${dateTime} (revision ${revision})`,
       publish: "Publish to Nekote Blog",
-      publishDesc: "Sends the current contents of your vault. You can review them before sending.",
+      publishDesc:
+        "Sends the notes under posts/ and pages/ in the content root, plus the files they reference. You can review them before sending.",
       publishButton: "Publish",
     },
     advanced: {
@@ -104,7 +111,7 @@ export const en = {
       connectionRefreshed: "Nekote Blog: Connection status updated.",
       disconnected: "Nekote Blog: Disconnected.",
       disconnectedButNotRevoked: (reason: string) =>
-        `Nekote Blog: This device was removed here, but revoking it on the server failed (${reason}). Revoke it from the device list on your dashboard.`,
+        `Nekote Blog: This device was disconnected here, but removing it on the server failed (${reason}). Remove it from the device list on your dashboard.`,
       unknownReason: "unknown reason",
       unexpectedError: "Something went wrong. Please wait a moment and try again.",
     },
@@ -118,15 +125,17 @@ export const en = {
     readingAssets: "Reading referenced assets…",
     cancelled: "Publish cancelled.",
     vaultRoot: "(vault root)",
+    /** 文中に差し込むコンテンツルートのpath。vaultルートは`vaultRoot`をそのまま使う */
+    quotedPath: (path: string) => `"${path}"`,
     blog: (title: string, subdomain: string) =>
       `Publishing to: ${title} (${subdomain}.nekote.blog)`,
     scanConfirm: {
       noteTitle: "There are a lot of notes",
       assetTitle: "There are a lot of referenced assets",
       noteAmount: (contentRoot: string, count: number, size: string) =>
-        `The content root "${contentRoot}" contains ${count} notes (${size}).`,
+        `The content root ${contentRoot} contains ${count} ${plural(count, "note", "notes")} (${size}).`,
       assetAmount: (contentRoot: string, count: number, size: string) =>
-        `The content root "${contentRoot}" contains ${count} referenced assets (${size}).`,
+        `The content root ${contentRoot} contains ${count} referenced ${plural(count, "asset", "assets")} (${size}).`,
       noteWarning:
         "Continuing will read all of these notes. Make sure the content root is correct.",
       assetWarning: "Continuing will read all of these assets.",
@@ -141,7 +150,7 @@ export const en = {
         assetCount: number,
         contentRoot: string,
       ) =>
-        `Publishing ${noteCount} notes (${publishedCount} published, ${draftCount} draft) and ${assetCount} referenced assets from the content root "${contentRoot}".`,
+        `Publishing ${noteCount} ${plural(noteCount, "note", "notes")} (${publishedCount} public, ${draftCount} ${plural(draftCount, "draft", "drafts")}) and ${assetCount} referenced ${plural(assetCount, "asset", "assets")} from the content root ${contentRoot}.`,
       note: "Unchanged files are not sent. Notes removed since the previous publish are also deleted from the blog.",
       confirmLabel: "Publish",
     },
@@ -163,7 +172,7 @@ export const en = {
     contentRootChange: {
       title: "Change the content root",
       detail: (from: string, to: string) =>
-        `The starting point for publishing changes from "${from}" to "${to}".`,
+        `The starting point for publishing changes from ${from} to ${to}.`,
       warning: "Notes outside the new starting point are deleted from the published posts.",
       confirmLabel: "Change and continue",
     },
@@ -174,9 +183,9 @@ export const en = {
         `The current revision on Nekote Blog is ${revision}, which does not match the record on this device.`,
       warning:
         "Continuing replaces the published posts with the current contents of this vault. To keep the changes made on the other device, sync your vault first and try again.",
-      added: (count: number) => `Added ${count} ${count === 1 ? "file" : "files"}`,
-      updated: (count: number) => `Updated ${count} ${count === 1 ? "file" : "files"}`,
-      deleted: (count: number) => `Deleted ${count} ${count === 1 ? "file" : "files"}`,
+      added: (count: number) => `Added ${count} ${plural(count, "file", "files")}`,
+      updated: (count: number) => `Updated ${count} ${plural(count, "file", "files")}`,
+      deleted: (count: number) => `Deleted ${count} ${plural(count, "file", "files")}`,
       confirmLabel: "Overwrite with this vault",
     },
     /** サーバーが返す`confirmationReasons`の説明文 */
@@ -184,7 +193,7 @@ export const en = {
       initialConnect: "This is the first publish to this blog.",
       sourceSwitch:
         "Switching from another content source to Obsidian. The existing posts are rebuilt.",
-      contentRootChanged: "The content root changes.",
+      contentRootChanged: "The content root will change.",
       largeDelete: "A large number of posts will be deleted.",
       largeChange: "A large number of posts will be added or updated.",
       largeUpload: "A large amount of file data will be sent.",
@@ -194,7 +203,7 @@ export const en = {
       initialTitle: "Confirm your first publish",
       title: "Review what will be published",
       articles: (publishedCount: number, draftCount: number) =>
-        `${publishedCount} published / ${draftCount} draft`,
+        `${publishedCount} public / ${draftCount} ${plural(draftCount, "draft", "drafts")}`,
       draftPrefix: "[Draft] ",
       article: (title: string, path: string) => `${title} (${path})`,
       counts: (added: number, updated: number, deleted: number, unchanged: number) =>
@@ -213,7 +222,7 @@ export const en = {
       stoppedDetail: "The published posts are unchanged.",
     },
     pushInProgress:
-      "The previous publish is still being processed on the server. It stays for a short while even right after you cancel it, so wait a moment and run it again.",
+      "The previous publish is still being processed on the server. Even right after you cancel, it stays in progress for a short while. Wait a moment and run it again.",
     unexpectedError: "Nekote Blog: Something went wrong.",
   },
 
@@ -242,7 +251,7 @@ export const en = {
     unsupportedPathCharacters: (path: string) =>
       `The path contains unsupported characters: ${path}`,
     unreadable: (path: string) =>
-      `Could not read this file: ${path}\nCloud sync may not have finished. Download all files to this device, then try again.`,
+      `Could not read this file. Cloud sync may not have finished. Download all files to this device, then try again. File: ${path}`,
     vaultChanged: 'The vault changed while publishing. Run "Publish to Nekote Blog" again.',
   },
 
@@ -250,7 +259,7 @@ export const en = {
   normalize: {
     nestedCallout: "Nested callouts were rendered as regular blockquotes.",
     unsupportedCalloutType: (identifier: string) =>
-      `This callout type is not supported, so it was rendered as a note: ${identifier}`,
+      `This callout type is not supported, so it was rendered as a "note" callout: ${identifier}`,
     noteEmbed: "A note embed was not expanded and became a link instead.",
     unresolvedLink: (linkpath: string) => `Could not resolve the link target: ${linkpath}`,
     unresolvedHeading: (heading: string) => `Could not resolve the link to the heading: ${heading}`,
@@ -259,12 +268,12 @@ export const en = {
     blockReferenceTextOnly: "A block reference cannot be displayed, so only its text was kept.",
     blockReferenceToTop: "A block reference became a link to the top of the post.",
     unpublishedNoteLink: (path: string) =>
-      `A link to a note that is not published was replaced with text only: ${path}`,
+      `A link to a note outside posts/ and pages/ was replaced with its text only: ${path}`,
     svgTextOnly: (path: string) => `SVG cannot be published, so only its text was kept: ${path}`,
     unsupportedFormatTextOnly: (path: string) =>
       `This file format is not supported, so only its text was kept: ${path}`,
     ignoredOption: (option: string) =>
-      `Nekote has no equivalent for this option, so it was ignored: ${option}`,
+      `The part after "#" in this link has no equivalent on Nekote Blog, so it was ignored: ${option}`,
     imageSizeIgnored: "Image size options are not applied.",
     outsideVault: (text: string) =>
       `A reference that points outside the vault cannot be imported: ${text}`,
@@ -276,11 +285,11 @@ export const en = {
     assetLimitReached:
       "The referenced asset limit was reached, so the frontmatter image was skipped.",
     frontmatterImageUnusableUrl: (key: string) =>
-      `The frontmatter ${key} has a URL that cannot be used, so it was skipped.`,
+      `The frontmatter ${key} must be a relative path or an https URL, so it was skipped.`,
     frontmatterImageUnresolved: (key: string, value: string) =>
       `Could not resolve the frontmatter ${key} image, so it was skipped: ${value}`,
     frontmatterImageNotRaster: (key: string, value: string) =>
-      `The frontmatter ${key} must be a raster image, so it was skipped: ${value}`,
+      `The frontmatter ${key} must be a PNG, JPG, JPEG, GIF, WebP or AVIF image, so it was skipped: ${value}`,
     frontmatterImageNotFound: (key: string, path: string) =>
       `The frontmatter ${key} image was not found, so it was skipped: ${path}`,
     frontmatterUnreadable: "Could not read the frontmatter.",
@@ -291,7 +300,7 @@ export const en = {
     mustBeString: (key: string) => `The frontmatter ${key} must be a string.`,
     invalidYaml: "Could not parse the frontmatter YAML.",
     mustBeMapping: "The frontmatter must be a list of key-value pairs.",
-    draftMustBeBoolean: "The frontmatter draft must be a boolean.",
+    draftMustBeBoolean: "The frontmatter draft must be true or false.",
   },
 
   /** プラグインが自分で作る通信エラー文（サーバーが返す`message`はそのまま出す） */
@@ -318,8 +327,9 @@ export const en = {
   },
 
   reportModal: {
-    needAttention: (count: number) => `${count} posts need attention`,
-    messages: "Messages from Nekote Blog",
+    needAttention: (count: number) =>
+      `${count} ${plural(count, "post needs", "posts need")} attention`,
+    messages: "Errors and warnings from the server",
     error: "Error",
     warning: "Warning",
     article: (title: string, path: string) => `${title} (${path})`,
@@ -331,12 +341,12 @@ export const en = {
     importFailed: "Nekote Blog: Could not import the image.",
     thumbnail: {
       placeholder: "Select an image for the thumbnail…",
-      applied: "Nekote Blog: Set the thumbnail.",
+      applied: "Nekote Blog: Thumbnail set.",
       failed: "Nekote Blog: Could not set the thumbnail.",
     },
     cover: {
       placeholder: "Select an image for the cover image…",
-      applied: "Nekote Blog: Set the cover image.",
+      applied: "Nekote Blog: Cover image set.",
       failed: "Nekote Blog: Could not set the cover image.",
     },
   },

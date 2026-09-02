@@ -96,7 +96,7 @@ describe("normalizeWikilinks(): ノートへのリンク", () => {
 
     expect(run("[[note]]を見る")).toBe("noteを見る");
     expect(warnings()).toEqual([
-      "A link to a note that is not published was replaced with text only: drafts/note.md",
+      "A link to a note outside posts/ and pages/ was replaced with its text only: drafts/note.md",
     ]);
   });
 
@@ -161,7 +161,7 @@ describe("normalizeWikilinks(): アセットの埋め込み", () => {
 
     expect(run("![[doc.pdf#page=2]]")).toBe("![doc](doc.pdf)");
     expect(warnings()).toEqual([
-      "Nekote has no equivalent for this option, so it was ignored: #page=2",
+      'The part after "#" in this link has no equivalent on Nekote Blog, so it was ignored: #page=2',
     ]);
   });
 

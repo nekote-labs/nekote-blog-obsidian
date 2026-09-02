@@ -17,6 +17,7 @@ import { DEFAULT_SETTINGS, type PluginSettings } from "../src/storage/plugin-dat
 import { SecretStore } from "../src/storage/secrets";
 import {
   publish,
+  quoteContentRoot,
   type ConfirmRequest,
   type PublishDeps,
   type PublishReport,
@@ -551,9 +552,19 @@ describe("publish: 失敗の見せ方", () => {
     await publish(harness.deps);
 
     expect(harness.notices).toEqual([
-      "The previous publish is still being processed on the server. It stays for a short " +
-        "while even right after you cancel it, so wait a moment and run it again.",
+      "The previous publish is still being processed on the server. Even right after you " +
+        "cancel, it stays in progress for a short while. Wait a moment and run it again.",
     ]);
     expect(harness.reports).toEqual([]);
+  });
+});
+
+describe("quoteContentRoot()", () => {
+  it("実pathは引用符で囲む", () => {
+    expect(quoteContentRoot("blog")).toBe('"blog"');
+  });
+
+  it("vaultルートはラベルをそのまま出す（二重に括らない）", () => {
+    expect(quoteContentRoot("")).toBe("(vault root)");
   });
 });

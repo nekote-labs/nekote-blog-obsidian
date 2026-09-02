@@ -135,7 +135,8 @@ describe("normalizeNote(): frontmatterの画像", () => {
       expect(note.issues).toEqual([
         {
           level: "warning",
-          message: "The frontmatter thumbnail has a URL that cannot be used, so it was skipped.",
+          message:
+            "The frontmatter thumbnail must be a relative path or an https URL, so it was skipped.",
         },
       ]);
     },
@@ -172,7 +173,7 @@ describe("normalizeNote(): frontmatterの画像", () => {
     ]);
   });
 
-  it.each([["cat.svg"], ["cat.pdf"]])("ラスタ画像でない%sは警告して省略する", (name) => {
+  it.each([["cat.svg"], ["cat.pdf"]])("対応する画像形式でない%sは警告して省略する", (name) => {
     const run = setup({ files: [`blog/posts/img/${name}`] });
 
     const note = run(md("---", `thumbnail: ./img/${name}`, "---", "本文"));
@@ -181,7 +182,7 @@ describe("normalizeNote(): frontmatterの画像", () => {
     expect(note.issues).toEqual([
       {
         level: "warning",
-        message: `The frontmatter thumbnail must be a raster image, so it was skipped: ./img/${name}`,
+        message: `The frontmatter thumbnail must be a PNG, JPG, JPEG, GIF, WebP or AVIF image, so it was skipped: ./img/${name}`,
       },
     ]);
   });

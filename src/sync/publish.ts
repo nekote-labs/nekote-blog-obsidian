@@ -170,8 +170,8 @@ function scanConfirmRequest(
     title: isNote ? t.noteTitle : t.assetTitle,
     paragraphs: [
       isNote
-        ? t.noteAmount(describeContentRoot(contentRoot), amount.count, formatBytes(amount.bytes))
-        : t.assetAmount(describeContentRoot(contentRoot), amount.count, formatBytes(amount.bytes)),
+        ? t.noteAmount(quoteContentRoot(contentRoot), amount.count, formatBytes(amount.bytes))
+        : t.assetAmount(quoteContentRoot(contentRoot), amount.count, formatBytes(amount.bytes)),
       isNote ? t.noteWarning : t.assetWarning,
     ],
     confirmLabel: t.confirmLabel,
@@ -194,7 +194,7 @@ function publishConfirmRequest(
         summary.publishedCount,
         summary.draftCount,
         summary.asset.count,
-        describeContentRoot(contentRoot),
+        quoteContentRoot(contentRoot),
       ),
       t.note,
     ],
@@ -257,7 +257,7 @@ async function confirmContentRootChange(
   return deps.ui.confirm({
     title: t.title,
     paragraphs: [
-      t.detail(describeContentRoot(source.contentRoot), describeContentRoot(contentRoot)),
+      t.detail(quoteContentRoot(source.contentRoot), quoteContentRoot(contentRoot)),
       t.warning,
     ],
     confirmLabel: t.confirmLabel,
@@ -509,4 +509,10 @@ function describeBlog(blog: ConnectionBlog): string {
 
 export function describeContentRoot(contentRoot: string): string {
   return contentRoot === "" ? getTranslations().publish.vaultRoot : contentRoot;
+}
+
+/** 文中に差し込む形。実pathは引用符で囲み、vaultルートはラベルをそのまま出す（二重に括らない） */
+export function quoteContentRoot(contentRoot: string): string {
+  const t = getTranslations().publish;
+  return contentRoot === "" ? t.vaultRoot : t.quotedPath(contentRoot);
 }

@@ -15,7 +15,7 @@ import type { DeviceAuthorizationPrompt } from "../auth/device-authorization";
 import { getTranslations } from "../i18n";
 import { NekoteApiError } from "../protocol/errors";
 import type { ConnectionResponse } from "../protocol/types";
-import { describeContentRoot } from "../sync/publish";
+import { describeContentRoot, quoteContentRoot } from "../sync/publish";
 import type NekoteBlogPlugin from "../main";
 
 /** コンテンツルートのdropdownで「未選択」「vaultのルート」を表す値 */
@@ -544,7 +544,7 @@ function describeConnection(connection: ConnectionResponse | null): string {
     case "obsidian":
       return t.obsidianSource(
         connection.source.appliedRevision,
-        describeContentRoot(connection.source.contentRoot),
+        quoteContentRoot(connection.source.contentRoot),
       );
   }
 }
