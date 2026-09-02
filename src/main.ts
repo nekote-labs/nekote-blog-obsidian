@@ -8,6 +8,8 @@ import {
   Platform,
   Plugin,
   TFile,
+  TFolder,
+  debounce,
   getLanguage,
   parseYaml,
   requestUrl,
@@ -48,6 +50,18 @@ export default class NekoteBlogPlugin extends Plugin {
   connection!: ConnectionService;
   private client!: NekoteApiClient;
   private vault!: ObsidianVaultGateway;
+  private settingTab!: NekoteBlogSettingTab;
+  /**
+   * 設定画面のフォルダ一覧を作り直す。定義は`update()`のときだけ組み立てられ、
+   * 設定画面を開き直しても作り直されない。フォルダの削除は子の分もまとめて来るので間引く
+   */
+  private readonly requestSettingTabUpdate = debounce(
+    () => {
+      this.settingTab.update();
+    },
+    300,
+    true,
+  );
   /** 反映の実行中だけ立つ。二重実行を防ぎ、プラグイン無効化で中断する */
   private publishing: AbortController | null = null;
   /** ノートヘッダーへ足した反映ボタン。`addAction`に削除APIが無いので自分で持つ */
@@ -80,7 +94,8 @@ export default class NekoteBlogPlugin extends Plugin {
         this.updateSettings({ connection: hint }),
     });
 
-    this.addSettingTab(new NekoteBlogSettingTab(this.app, this));
+    this.settingTab = new NekoteBlogSettingTab(this.app, this);
+    this.addSettingTab(this.settingTab);
 
     const t = getTranslations();
     this.addCommand({
@@ -144,6 +159,7 @@ export default class NekoteBlogPlugin extends Plugin {
       this.app.vault.on("rename", (file, oldPath) => {
         this.syncNoteActions();
         void this.insertFrontmatterForMovedNote(file, oldPath);
+        this.refreshFolderOptions(file);
       }),
     );
 
@@ -152,14 +168,24 @@ export default class NekoteBlogPlugin extends Plugin {
       this.registerEvent(
         this.app.vault.on("create", (file) => {
           void this.insertFrontmatterForNewNote(file);
+          this.refreshFolderOptions(file);
         }),
       );
+      this.registerEvent(
+        this.app.vault.on("delete", (file) => {
+          this.refreshFolderOptions(file);
+        }),
+      );
+      // `addSettingTab()`が定義を組み立てた時点ではvaultの索引が揃っておらず、
+      // フォルダ一覧が空のまま固定される。索引が揃ってから作り直す
+      this.settingTab.update();
       this.syncNoteActions();
       this.registerTitlePropertyType();
     });
   }
 
   onunload(): void {
+    this.requestSettingTabUpdate.cancel();
     this.publishing?.abort();
     for (const action of this.noteActions.values()) action.remove();
     this.noteActions.clear();
@@ -476,6 +502,12 @@ export default class NekoteBlogPlugin extends Plugin {
   /** vault内のフォルダ一覧（コンテンツルートの選択肢） */
   folderPaths(): string[] {
     return this.vault.listFolderPaths();
+  }
+
+  /** フォルダが増減・改名したら設定画面のフォルダ一覧を作り直す */
+  private refreshFolderOptions(file: TAbstractFile): void {
+    if (!(file instanceof TFolder)) return;
+    this.requestSettingTabUpdate();
   }
 
   /** 承認ページを既定のブラウザで開く。Electronのshellは使わない（モバイル非対応） */
