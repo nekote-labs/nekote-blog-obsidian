@@ -148,7 +148,7 @@ async function uploadOne(deps: PushDeps, pushId: string, blob: MissingBlob): Pro
     } catch (error) {
       const retryable = error instanceof NekoteApiError && error.isRetryable;
       if (!retryable || attempt >= UPLOAD_RETRY_LIMIT || deps.signal.aborted) throw error;
-      const retryAfter = (error as NekoteApiError).retryAfterSeconds;
+      const retryAfter = error.retryAfterSeconds;
       await deps.sleep(retryAfter === undefined ? UPLOAD_RETRY_INTERVAL_MS : retryAfter * 1000);
     }
   }

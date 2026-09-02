@@ -10,7 +10,7 @@
 // - アセット: vaultルート相対
 
 // 制御文字はmanifest keyとして拒否する対象そのものなので、正規表現に入れる
-// eslint-disable-next-line no-control-regex
+// eslint-disable-next-line no-control-regex -- 制御文字そのものが検出対象なので必要
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/;
 
 function isCanonicalSegment(segment: string): boolean {

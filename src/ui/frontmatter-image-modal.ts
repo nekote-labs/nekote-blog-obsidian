@@ -56,9 +56,12 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
       relativePathFrom(normalizeVaultPath(this.note.path), normalizeVaultPath(asset.path)),
     );
     try {
-      await this.app.fileManager.processFrontMatter(this.note, (frontmatter) => {
-        frontmatter[this.key] = value;
-      });
+      await this.app.fileManager.processFrontMatter(
+        this.note,
+        (frontmatter: Record<string, unknown>) => {
+          frontmatter[this.key] = value;
+        },
+      );
     } catch {
       new Notice(`Nekote Blog: Could not set the ${KEY_LABELS[this.key]}.`);
       return;
@@ -70,7 +73,7 @@ export class FrontmatterImageModal extends FuzzySuggestModal<PickerItem> {
     const picked = await pickLocalImage();
     if (picked === null) return;
     if (classifyAssetPath(picked.name) !== "image") {
-      new Notice("Nekote Blog: Supported formats are png, jpg, jpeg, gif, webp and avif.");
+      new Notice("Nekote Blog: Supported formats are PNG, JPG, JPEG, GIF, WebP and AVIF.");
       return;
     }
     try {
@@ -111,7 +114,7 @@ function availableAssetPath(vault: Vault, folder: string, rawName: string): stri
 
 function pickLocalImage(): Promise<{ name: string; data: ArrayBuffer } | null> {
   return new Promise((resolve) => {
-    const input = document.createElement("input");
+    const input = createEl("input");
     input.type = "file";
     input.accept =
       ".png,.jpg,.jpeg,.gif,.webp,.avif,image/png,image/jpeg,image/gif,image/webp,image/avif";

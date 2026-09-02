@@ -452,7 +452,7 @@ export default class NekoteBlogPlugin extends Plugin {
     ).setting;
     if (typeof internal?.open !== "function" || typeof internal.openTabById !== "function") {
       new Notice(
-        "Nekote Blog: Open Settings > Community plugins > Nekote Blog to change the settings.",
+        "Nekote Blog: Open settings > Community plugins > Nekote Blog to change the settings.",
       );
       return;
     }

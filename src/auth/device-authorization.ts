@@ -138,12 +138,12 @@ export function createSleep(): (milliseconds: number, signal: AbortSignal) => Pr
         resolve();
         return;
       }
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         signal.removeEventListener("abort", onAbort);
         resolve();
       }, milliseconds);
       function onAbort(): void {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         resolve();
       }
       signal.addEventListener("abort", onAbort, { once: true });

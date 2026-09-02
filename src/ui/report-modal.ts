@@ -56,7 +56,7 @@ class ReportModal extends Modal {
 
 function appendArticle(list: HTMLElement, article: ScannedArticle): void {
   const item = list.createEl("li");
-  item.createEl("div", { text: `${article.title} (${article.path})` });
+  item.createDiv({ text: `${article.title} (${article.path})` });
   const issues = item.createEl("ul", { cls: "nekote-blog-list" });
   for (const issue of article.issues) {
     issues.createEl("li", {

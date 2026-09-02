@@ -49,7 +49,7 @@ class ConfirmModal extends Modal {
           this.confirmed = true;
           this.close();
         });
-        if (this.request.danger === true) button.setWarning();
+        if (this.request.danger === true) button.setDestructive();
         else button.setCta();
       });
   }

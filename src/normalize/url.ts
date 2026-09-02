@@ -9,7 +9,7 @@ const ALLOWED_LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
 
 // 制御文字・空白の混入でscheme判定をすり抜けさせないための除去。サーバーの
 // `compactForSchemeCheck`と同じ文字集合を落とす
-// eslint-disable-next-line no-control-regex
+// eslint-disable-next-line no-control-regex -- 制御文字そのものが除去対象なので必要
 const CONTROL_AND_SPACE_PATTERN = /[\u0000-\u0020\u007F]+/g;
 const SCHEME_PATTERN = /^([a-z][a-z\d+.-]*:)/i;
 const NUL = "\u0000";
