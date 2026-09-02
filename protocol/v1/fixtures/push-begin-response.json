@@ -5,11 +5,13 @@
   "baseRevision": 12,
   "appliedRevision": 12,
   "manifestHash": "5d41402abc4b2a76b9719d911017c592a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "mode": "full",
   "preflight": {
     "addedCount": 1,
     "updatedCount": 1,
     "deletedCount": 0,
     "unchangedCount": 8,
+    "untouchedCount": 0,
     "missingBlobCount": 2,
     "missingBlobBytes": 21504,
     "initialConnect": false,

@@ -380,7 +380,7 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
                     this.plugin.settings.contentRoot === null,
                 )
                 .onClick(() => {
-                  void this.plugin.publish();
+                  void this.plugin.publish({ kind: "all" });
                 }),
             );
           },

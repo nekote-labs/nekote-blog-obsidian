@@ -133,6 +133,12 @@ export interface SyncManifestEntry {
 }
 
 /**
+ * 反映モード。`full`はmanifestをvaultの全量として扱い、載っていない記事を削除する。
+ * `partial`は載せたentryだけをマージし、削除しない
+ */
+export type PushMode = "full" | "partial";
+
+/**
  * 同期manifest（beginのbody）。entryは**path昇順**（UTF-16コード単位順）で、
  * 重複と大文字小文字だけが異なるpathの共存を禁じる
  */
@@ -141,6 +147,11 @@ export interface SyncManifest {
   vaultId: string;
   contentRoot: string;
   baseRevision: number;
+  /**
+   * 契約上は省略可（省略時`full`）だが、**プラグインは常に明示して送る**。
+   * hashの対象外なので、`mode`が違っても同じentryなら同じmanifest hashになる
+   */
+  mode?: PushMode;
   entries: SyncManifestEntry[];
 }
 
@@ -150,6 +161,8 @@ export interface PushPreflight {
   updatedCount: number;
   deletedCount: number;
   unchangedCount: number;
+  /** 適用済み記事のうち今回のmanifestに載っていない件数（`full`では常に0） */
+  untouchedCount: number;
   missingBlobCount: number;
   missingBlobBytes: number;
   initialConnect: boolean;
@@ -166,6 +179,12 @@ export interface PushBeginResponse {
   protocolVersion: number;
   pushId: string;
   state: PushState;
+  /**
+   * サーバーが解釈した反映モード。送った`mode`と照合し、不一致・欠落なら
+   * confirmせず中止する（`mode`を知らない古いサーバーが部分manifestを全量として
+   * 適用し、載せなかった記事を削除する事故を防ぐ）
+   */
+  mode: PushMode;
   baseRevision: number;
   /** サーバーの現在revision（初回接続前は0） */
   appliedRevision: number;
@@ -237,6 +256,7 @@ export type PushFinalizeResponse = PushFinalizeAcceptedResponse | PushFinalizeVe
 export interface PushStatusResponse {
   pushId: string;
   state: PushState;
+  mode: PushMode;
   baseRevision: number;
   targetRevision: number | null;
   appliedRevision: number;

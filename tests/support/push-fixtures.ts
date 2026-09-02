@@ -29,6 +29,7 @@ export function beginResponse(overrides: BeginOverrides = {}): PushBeginResponse
     protocolVersion: 1,
     pushId: PUSH_ID,
     state: "preflight",
+    mode: "full",
     baseRevision: 12,
     appliedRevision: 12,
     manifestHash: MANIFEST_HASH,
@@ -37,6 +38,7 @@ export function beginResponse(overrides: BeginOverrides = {}): PushBeginResponse
       updatedCount: 0,
       deletedCount: 0,
       unchangedCount: 3,
+      untouchedCount: 0,
       missingBlobCount: 0,
       missingBlobBytes: 0,
       initialConnect: false,
@@ -61,6 +63,7 @@ export function statusResponse(
   return {
     pushId: PUSH_ID,
     state,
+    mode: "full",
     baseRevision: 12,
     targetRevision: state === "succeeded" ? 13 : null,
     appliedRevision: state === "succeeded" ? 13 : 12,

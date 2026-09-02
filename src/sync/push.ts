@@ -18,6 +18,19 @@ import type {
   SyncManifest,
 } from "../protocol/types";
 
+/**
+ * begin応答の`mode`が送った`mode`と違う（`mode`を知らない古いサーバーを含む）。
+ *
+ * **原本を1件も送らず、pushIdも記録せずに中止する**。部分manifestを全量として
+ * 適用されると、載せなかった記事がすべて削除される
+ */
+export class PushModeMismatchError extends Error {
+  constructor() {
+    super(getTranslations().publish.modeMismatch);
+    this.name = "PushModeMismatchError";
+  }
+}
+
 /** 適用中のstatus pollの間隔（ミリ秒）。待つほど伸ばす */
 const POLL_MIN_INTERVAL_MS = 3_000;
 const POLL_MAX_INTERVAL_MS = 15_000;
@@ -54,8 +67,8 @@ export interface PushDeps {
   confirm: (begin: PushBeginResponse) => Promise<boolean>;
   report: (progress: PushProgress) => void;
   sleep: (milliseconds: number) => Promise<void>;
-  /** Push世代が始まった時点で1回呼ぶ。中断後の再開に使う */
-  onPushStarted: (pushId: string) => void;
+  /** Push世代が始まった時点で1回呼ぶ。中断後の再開と結果報告に使う */
+  onPushStarted: (begin: PushBeginResponse) => void;
   signal: AbortSignal;
 }
 
@@ -67,7 +80,8 @@ export interface PushInput {
 export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOutcome> {
   deps.report({ phase: "begin", message: getTranslations().push.begin });
   let begin = await deps.client.beginPush(input.manifest);
-  deps.onPushStarted(begin.pushId);
+  assertSameMode(begin, input);
+  deps.onPushStarted(begin);
   if (deps.signal.aborted) return { status: "cancelled" };
 
   if (begin.confirmationRequired && !(await deps.confirm(begin))) {
@@ -85,7 +99,8 @@ export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOut
     // 同じmanifestのbeginは処理中のPushへ合流するが、期限切れなら**新しいPush世代**に
     // なる。pushIdの記録と`confirm`もやり直さないと、確認前のuploadとして拒否される
     begin = await deps.client.beginPush(input.manifest);
-    deps.onPushStarted(begin.pushId);
+    assertSameMode(begin, input);
+    deps.onPushStarted(begin);
     if (deps.signal.aborted) return { status: "cancelled" };
     if (!(await stageBlobs(deps, begin))) return { status: "cancelled" };
     finalized = await finalize(deps, begin, input.manifestHash);
@@ -93,6 +108,16 @@ export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOut
   if (!finalized) return { status: "cancelled" };
 
   return pollUntilApplied(deps, begin.pushId);
+}
+
+/**
+ * 送った`mode`とサーバーが解釈した`mode`を突き合わせる。
+ *
+ * **`confirm`とpushIdの記録より前**に呼ぶ。pushIdを記録すると、次回起動時に
+ * `resumePush()`がこのPushを追ってしまう
+ */
+function assertSameMode(begin: PushBeginResponse, input: PushInput): void {
+  if (begin.mode !== input.manifest.mode) throw new PushModeMismatchError();
 }
 
 /**

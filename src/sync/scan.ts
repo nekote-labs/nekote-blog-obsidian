@@ -104,11 +104,22 @@ interface NoteTarget {
   articlePath: string;
 }
 
-export async function scanVault(deps: ScanDeps, contentRoot: string): Promise<ScanResult> {
+/** 走査を1件のノートへ絞る。部分反映（`mode: "partial"`）で使う */
+export interface ScanScope {
+  /** ObsidianのTFile.path（vaultルート相対・正規化前） */
+  vaultPath: string;
+}
+
+export async function scanVault(
+  deps: ScanDeps,
+  contentRoot: string,
+  scope?: ScanScope,
+): Promise<ScanResult> {
   const t = getTranslations().scan;
   const { vault } = deps;
+  // vault全体の索引はscopeを絞っても要る（リンク解決・参照アセットの実体・NFC衝突検出）
   const byPath = indexFiles(vault.listFiles());
-  const targets = collectNoteTargets(byPath, contentRoot);
+  const targets = collectNoteTargets(byPath, contentRoot, scope);
 
   if (targets.length > MAX_MANIFEST_MARKDOWN_ENTRIES) {
     throw new ScanAbortedError(t.tooManyMarkdown(targets.length, MAX_MANIFEST_MARKDOWN_ENTRIES));
@@ -237,12 +248,20 @@ function indexFiles(files: readonly VaultFileRef[]): Map<string, VaultFileRef> {
   return byPath;
 }
 
+/**
+ * 公開対象のMarkdownを集める。`scope`があれば、その1件だけへ絞る。
+ *
+ * pathの検査は**絞り込んだあとの対象にだけ**行う。全量では黙って除外すると削除に
+ * なるので全件見るが、部分反映は削除しないので、無関係なノートのpath不備で止めない
+ */
 function collectNoteTargets(
   byPath: ReadonlyMap<string, VaultFileRef>,
   contentRoot: string,
+  scope: ScanScope | undefined,
 ): NoteTarget[] {
   const targets: NoteTarget[] = [];
   for (const file of byPath.values()) {
+    if (scope !== undefined && file.vaultPath !== scope.vaultPath) continue;
     if (file.extension !== "md") continue;
     const articlePath = toContentRootRelative(file.path, contentRoot);
     if (articlePath === null || contentKindFromPath(articlePath) === null) continue;
@@ -252,6 +271,9 @@ function collectNoteTargets(
       throw new ScanAbortedError(getTranslations().scan.unsupportedPathCharacters(file.vaultPath));
     }
     targets.push({ file, articlePath });
+  }
+  if (scope !== undefined && targets.length === 0) {
+    throw new ScanAbortedError(getTranslations().scan.notPublishTarget(scope.vaultPath));
   }
   return targets.sort((left, right) => (left.articlePath < right.articlePath ? -1 : 1));
 }

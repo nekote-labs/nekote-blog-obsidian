@@ -13,10 +13,12 @@ export const en = {
   commands: {
     openSettings: "Open settings",
     publish: "Publish",
+    publishNote: "Publish this note",
     insertFrontmatter: "Insert frontmatter",
     pickThumbnail: "Select thumbnail image",
     pickCover: "Select cover image",
     publishToNekoteBlog: "Publish to Nekote Blog",
+    fileMenuPublishNote: "Nekote Blog: Publish this note",
     fileMenuPickThumbnail: "Nekote Blog: Select thumbnail image",
     fileMenuPickCover: "Nekote Blog: Select cover image",
   },
@@ -154,6 +156,33 @@ export const en = {
       note: "Unchanged files are not sent. Notes removed since the previous publish are also deleted from the blog.",
       confirmLabel: "Publish",
     },
+    /** 「このノートだけ反映」（部分反映）の文言 */
+    partial: {
+      needsFullPublish:
+        "Nekote Blog: Publish the whole vault once before you publish a single note.",
+      contentRootChanged:
+        "Nekote Blog: The content root has changed. Run Publish to publish everything first.",
+      notAllowed:
+        "Nekote Blog: You cannot publish a single note right now. Run Publish to publish everything.",
+      confirm: {
+        title: "Publish this note",
+        summary: (title: string, path: string, assetCount: number) =>
+          `Publishing only "${title}" (${path}) and ${assetCount} referenced ${plural(assetCount, "asset", "assets")}.`,
+        draftNote: "This note is a draft, so it stays unpublished on your blog.",
+        note: "Other posts are left as they are. Moves, renames and deletions are not applied by this action. Run Publish for those.",
+        confirmLabel: "Publish this note",
+      },
+      anotherDevice: {
+        detail:
+          "Another device has published. This note is applied on top of that, and other posts are not changed. To bring this device up to date, sync your vault and run Publish.",
+        confirmLabel: "Publish this note",
+      },
+      preflightCounts: (added: number, updated: number, unchanged: number, untouched: number) =>
+        `Posts: ${added} added / ${updated} updated / ${unchanged} unchanged / ${untouched} untouched`,
+      reportApplied: (revision: number) => `This note was published (revision ${revision})`,
+      untouched: (count: number) =>
+        `The other ${count} ${plural(count, "post is", "posts are")} unchanged.`,
+    },
     sameVault: {
       title: "Treat this as the connected vault?",
       intro: "An Obsidian vault is already connected to this blog.",
@@ -221,6 +250,8 @@ export const en = {
       stopped: "Publish stopped",
       stoppedDetail: "The published posts are unchanged.",
     },
+    modeMismatch:
+      "The server could not confirm the publish mode, so nothing was sent. Update the plugin, or run Publish to publish everything.",
     pushInProgress:
       "The previous publish is still being processed on the server. Even right after you cancel, it stays in progress for a short while. Wait a moment and run it again.",
     unexpectedError: "Nekote Blog: Something went wrong.",
@@ -250,6 +281,8 @@ export const en = {
       `Two files end up with the same name after Unicode normalization. Rename one of them: ${first} / ${second}`,
     unsupportedPathCharacters: (path: string) =>
       `The path contains unsupported characters: ${path}`,
+    notPublishTarget: (path: string) =>
+      `This note is not one of the notes that get published: ${path}`,
     unreadable: (path: string) =>
       `Could not read this file. Cloud sync may not have finished. Download all files to this device, then try again. File: ${path}`,
     vaultChanged: 'The vault changed while publishing. Run "Publish to Nekote Blog" again.',

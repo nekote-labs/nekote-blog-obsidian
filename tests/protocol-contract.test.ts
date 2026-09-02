@@ -208,11 +208,13 @@ describe("fixtureがTypeScriptの型として解釈できる", () => {
     expect(response.manifestHash).toBe(
       "5d41402abc4b2a76b9719d911017c592a1b2c3d4e5f60718293a4b5c6d7e8f90",
     );
+    expect(response.mode).toBe("full");
     expect(response.preflight).toEqual({
       addedCount: 1,
       updatedCount: 1,
       deletedCount: 0,
       unchangedCount: 8,
+      untouchedCount: 0,
       missingBlobCount: 2,
       missingBlobBytes: 21504,
       initialConnect: false,
@@ -273,6 +275,7 @@ describe("fixtureがTypeScriptの型として解釈できる", () => {
     const response = readFixture<PushStatusResponse>("push-status-response.json");
     expect(response.pushId).toBe("018f2c34-5a6b-7c8d-9e0f-1a2b3c4d5e6f");
     expect(response.state).toBe("verifying");
+    expect(response.mode).toBe("full");
     expect(response.baseRevision).toBe(12);
     // 完了前はtargetRevisionがnullで返る
     expect(response.targetRevision).toBeNull();
@@ -317,6 +320,24 @@ describe("fixtureがTypeScriptの型として解釈できる", () => {
     expect(manifest.entries[2]?.bytes).toBe(1024);
     expect(manifest.entries[2]?.assetPaths).toEqual(["assets/images/cat.png"]);
     expect(manifest.entries[2]?.linkedArticlePaths).toEqual(["pages/about.md"]);
+    // 全量反映はmodeを省略する（省略時fullの契約）
+    expect(manifest.mode).toBeUndefined();
+  });
+
+  it("sync-manifest.partial.jsonが部分反映のSyncManifestとして読める", () => {
+    const manifest = readFixture<SyncManifest>("sync-manifest.partial.json");
+    expect(manifest.protocolVersion).toBe(PROTOCOL_MAJOR);
+    expect(manifest.vaultId).toBe("vault-8f3a2b1c9d0e");
+    expect(manifest.contentRoot).toBe("blog");
+    expect(manifest.baseRevision).toBe(12);
+    expect(manifest.mode).toBe("partial");
+    // 部分反映は対象ノートと参照アセットだけを載せる
+    expect(manifest.entries.map((entry) => entry.path)).toEqual([
+      "assets/images/cat.png",
+      "posts/はじめての記事.md",
+    ]);
+    expect(manifest.entries[1]?.assetPaths).toEqual(["assets/images/cat.png"]);
+    expect(manifest.entries[1]?.linkedArticlePaths).toEqual(["pages/about.md"]);
   });
 
   it("device-authorization-request.valid.jsonがDeviceAuthorizationRequestとして読める", () => {
@@ -380,6 +401,15 @@ describe("エラーfixtureの解釈", () => {
     expect(parsed.details).toEqual({
       missing: ["3b1f5c9d2e8a47c60b5d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d"],
     });
+  });
+
+  it("error.partial-push-not-allowed.jsonからcodeと理由が取れる", () => {
+    const parsed = parseApiErrorBody(readFixture<unknown>("error.partial-push-not-allowed.json"));
+    expect(parsed.code).toBe("partial_push_not_allowed");
+    expect(parsed.message).toBe(
+      "この状態では部分反映を実行できません。全体反映を実行してください。",
+    );
+    expect(parsed.details).toEqual({ reason: "no_applied_revision" });
   });
 
   it("壊れたbodyでも例外を投げずcodeがnullになる", () => {

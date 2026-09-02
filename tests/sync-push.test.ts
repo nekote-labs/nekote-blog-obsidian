@@ -6,11 +6,13 @@ import type {
   PushBeginResponse,
   PushConfirmResponse,
   PushFinalizeResponse,
+  PushMode,
   PushStatusResponse,
   SyncManifest,
 } from "../src/protocol/types";
 import { buildSyncManifest } from "../src/sync/manifest";
 import {
+  PushModeMismatchError,
   resumePush,
   runPush,
   type PushDeps,
@@ -40,16 +42,24 @@ function verifying(retryAfter = 30): PushFinalizeResponse {
   };
 }
 
-function pushInput(): PushInput {
+function pushInput(mode: PushMode = "full"): PushInput {
   return {
     manifest: buildSyncManifest({
       vaultId: "vault-8f3a2b1c9d0e",
       contentRoot: "blog",
       baseRevision: 12,
+      mode,
       entries: [],
     }),
     manifestHash: MANIFEST_HASH,
   };
+}
+
+/** `mode`を知らない古いサーバーの応答 */
+function beginWithoutMode(): PushBeginResponse {
+  const begin: Partial<PushBeginResponse> = beginResponse();
+  delete begin.mode;
+  return begin as PushBeginResponse;
 }
 
 interface FinalizeInput {
@@ -157,9 +167,9 @@ function createHarness(options: HarnessOptions = {}): Harness {
       options.onSleep?.();
       clock.now += options.advanceMsPerSleep ?? milliseconds;
     },
-    onPushStarted: (pushId) => {
-      calls.push(`onPushStarted:${pushId}`);
-      startedPushIds.push(pushId);
+    onPushStarted: (begin) => {
+      calls.push(`onPushStarted:${begin.pushId}`);
+      startedPushIds.push(begin.pushId);
     },
     signal: options.signal ?? new AbortController().signal,
   };
@@ -229,6 +239,64 @@ describe("runPush: 正常系", () => {
     expect(harness.calls.indexOf(`onPushStarted:${PUSH_ID}`)).toBeLessThan(
       harness.calls.indexOf("uploadBlob:sha-a"),
     );
+  });
+});
+
+describe("runPush: modeの照合", () => {
+  it.each(["full", "partial"] as const)("manifestの%sをそのままbeginPushへ渡す", async (mode) => {
+    const harness = createHarness({
+      begin: [beginResponse({ mode })],
+      finalize: [enqueued()],
+      status: [statusResponse("succeeded")],
+    });
+
+    await runPush(harness.deps, pushInput(mode));
+
+    expect(harness.manifests.map((manifest) => manifest.mode)).toEqual([mode]);
+  });
+
+  it("begin応答のmodeが送ったmodeと違えば、confirmPushもonPushStartedも呼ばずに投げる", async () => {
+    const harness = createHarness({ begin: [beginResponse({ mode: "full" })] });
+
+    await expect(runPush(harness.deps, pushInput("partial"))).rejects.toBeInstanceOf(
+      PushModeMismatchError,
+    );
+    expect(harness.calls).toEqual(["beginPush"]);
+    expect(harness.startedPushIds).toEqual([]);
+  });
+
+  it("begin応答にmodeが無ければ（modeを知らない古いサーバー）投げる", async () => {
+    const harness = createHarness({ begin: [beginWithoutMode()] });
+
+    await expect(runPush(harness.deps, pushInput("partial"))).rejects.toBeInstanceOf(
+      PushModeMismatchError,
+    );
+    expect(harness.calls).toEqual(["beginPush"]);
+    expect(harness.startedPushIds).toEqual([]);
+  });
+
+  it("blobs_incomplete後の再beginでもmodeを照合する", async () => {
+    const harness = createHarness({
+      begin: [
+        beginResponse({ mode: "partial", missingBlobs: [missingBlob("sha-a")] }),
+        beginResponse({ mode: "full" }),
+      ],
+      finalize: [apiError("blobs_incomplete")],
+    });
+
+    await expect(runPush(harness.deps, pushInput("partial"))).rejects.toBeInstanceOf(
+      PushModeMismatchError,
+    );
+    expect(harness.calls).toEqual([
+      "beginPush",
+      `onPushStarted:${PUSH_ID}`,
+      `confirmPush:${PUSH_ID}`,
+      "loadBlob:sha-a",
+      "uploadBlob:sha-a",
+      `finalizePush:${PUSH_ID}`,
+      "beginPush",
+    ]);
+    expect(harness.startedPushIds).toEqual([PUSH_ID]);
   });
 });
 

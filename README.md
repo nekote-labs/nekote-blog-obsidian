@@ -21,6 +21,12 @@ written back into your vault by the publish step.
 2. In settings, choose one folder as the **content root**.
 3. Run **Nekote Blog: Publish** from the command palette, or use the ribbon icon.
 
+To update a single note without touching the rest of your blog, run **Nekote Blog: Publish this
+note** from the command palette, the Nekote Blog button in the note header, or the file menu. It
+sends only that note and the assets it references; every other post stays exactly as it is. This
+needs one full **Publish** first, and moves, renames and deletions are not applied by it — run
+**Publish** to bring those across.
+
 Inside the content root, `posts/` holds blog posts and `pages/` holds standalone pages. Subfolders are for
 your own organization and do not affect public URLs. Use the `draft` property in frontmatter to
 switch between published and draft.
@@ -61,6 +67,7 @@ Connecting opens `dash.nekote.blog` in your browser so you can approve the devic
   root), a SHA-256 hash, its size, and which assets and published notes it links to.
 - A random vault identifier generated on first publish, the content root path, and the revision of
   your last publish, so the server can compute the difference.
+- With **Publish this note**, only that one note and the assets it references are sent.
 
 ### What is not sent
 

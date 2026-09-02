@@ -5,10 +5,12 @@ export const ja = {
   commands: {
     openSettings: "設定を開く",
     publish: "反映",
+    publishNote: "このノートだけ反映",
     insertFrontmatter: "Front Matterを挿入",
     pickThumbnail: "サムネイル画像を選択",
     pickCover: "カバー画像を選択",
     publishToNekoteBlog: "Nekote Blogへ反映",
+    fileMenuPublishNote: "Nekote Blog: このノートだけ反映",
     fileMenuPickThumbnail: "Nekote Blog: サムネイル画像を選択",
     fileMenuPickCover: "Nekote Blog: カバー画像を選択",
   },
@@ -142,6 +144,31 @@ export const ja = {
       note: "変更のないファイルは送信されません。前回の反映から消えたノートはブログからも削除されます。",
       confirmLabel: "反映する",
     },
+    partial: {
+      needsFullPublish:
+        "Nekote Blog: 先に全体を反映してください。1件だけの反映はそのあとで使えます。",
+      contentRootChanged:
+        "Nekote Blog: コンテンツルートが変わっています。先に「Nekote Blogへ反映」で全体を反映してください。",
+      notAllowed:
+        "Nekote Blog: この状態ではこのノートだけの反映はできません。「Nekote Blogへ反映」で全体を反映してください。",
+      confirm: {
+        title: "このノートだけ反映します",
+        summary: (title: string, path: string, assetCount: number) =>
+          `「${title}」（${path}）と参照アセット${assetCount}件だけを反映します。`,
+        draftNote: "このノートは下書きなので、ブログでは非公開になります。",
+        note: "他の記事はそのままです。移動・改名・削除はこの操作では反映されません。「Nekote Blogへ反映」で全体を反映してください。",
+        confirmLabel: "このノートだけ反映する",
+      },
+      anotherDevice: {
+        detail:
+          "他の端末が反映しています。このノートはその上に重ねて反映され、他の記事は変わりません。この端末を最新にするには、vaultを同期してから「Nekote Blogへ反映」を実行してください。",
+        confirmLabel: "このノートだけ反映する",
+      },
+      preflightCounts: (added: number, updated: number, unchanged: number, untouched: number) =>
+        `記事: 追加 ${added}件 / 更新 ${updated}件 / 変更なし ${unchanged}件 / 今回載せない ${untouched}件`,
+      reportApplied: (revision: number) => `このノートを反映しました（revision ${revision}）`,
+      untouched: (count: number) => `他の${count}件はそのままです。`,
+    },
     sameVault: {
       title: "接続済みのvaultとして扱いますか？",
       intro: "このブログにはすでにObsidianのvaultが接続されています。",
@@ -206,6 +233,8 @@ export const ja = {
       stopped: "反映を中止しました",
       stoppedDetail: "公開中の記事は変わっていません。",
     },
+    modeMismatch:
+      "サーバーが反映モードを確認できなかったため、何も送っていません。プラグインを更新するか、「Nekote Blogへ反映」で全体を反映してください。",
     pushInProgress:
       "前の反映がサーバー側でまだ処理中です。キャンセルした直後でも、サーバー側の処理はしばらく続きます。少し待ってからもう一度実行してください。",
     unexpectedError: "Nekote Blog: 予期しないエラーが発生しました。",
@@ -232,6 +261,7 @@ export const ja = {
     normalizationCollision: (first: string, second: string) =>
       `Unicodeの正規化で同じ名前になるファイルが2つあります。どちらかの名前を変えてください: ${first} / ${second}`,
     unsupportedPathCharacters: (path: string) => `パスに使えない文字が含まれています: ${path}`,
+    notPublishTarget: (path: string) => `このノートは公開対象ではありません: ${path}`,
     unreadable: (path: string) =>
       `ファイルを読み取れませんでした。クラウド同期が終わっていない可能性があります。すべてのファイルを端末へダウンロードしてから、もう一度実行してください。対象: ${path}`,
     vaultChanged:

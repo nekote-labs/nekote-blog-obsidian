@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "partial_push_not_allowed",
+    "message": "この状態では部分反映を実行できません。全体反映を実行してください。",
+    "details": {
+      "reason": "no_applied_revision"
+    }
+  }
+}

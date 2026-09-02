@@ -6,7 +6,7 @@
 // 同じvaultから同じhashが出ないと、中断したPushの再開も冪等なbeginも成立しない。
 import { sha256Hex } from "../crypto/hash";
 import { PROTOCOL_MAJOR } from "../protocol/limits";
-import type { SyncManifest, SyncManifestEntry } from "../protocol/types";
+import type { PushMode, SyncManifest, SyncManifestEntry } from "../protocol/types";
 
 /**
  * entryをpath昇順（UTF-16コード単位順）へ並べる。
@@ -71,10 +71,12 @@ export function manifestHash(
   return sha256Hex(new TextEncoder().encode(canonicalManifestJson(contentRoot, entries)));
 }
 
+/** `mode`はhashの対象外（`canonicalManifestJson`に入れない）。全量でも明示して送る */
 export function buildSyncManifest(input: {
   vaultId: string;
   contentRoot: string;
   baseRevision: number;
+  mode: PushMode;
   entries: readonly SyncManifestEntry[];
 }): SyncManifest {
   return {
@@ -82,6 +84,7 @@ export function buildSyncManifest(input: {
     vaultId: input.vaultId,
     contentRoot: input.contentRoot,
     baseRevision: input.baseRevision,
+    mode: input.mode,
     entries: [...input.entries],
   };
 }

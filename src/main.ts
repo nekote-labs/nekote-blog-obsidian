@@ -37,7 +37,7 @@ import {
   type PluginSettings,
 } from "./storage/plugin-data";
 import { SecretStore } from "./storage/secrets";
-import { publish } from "./sync/publish";
+import { publish, type PublishScope } from "./sync/publish";
 import { FrontmatterImageModal, type FrontmatterImageKey } from "./ui/frontmatter-image-modal";
 import { PropertiesActions } from "./ui/properties-actions";
 import { createPublishUi } from "./ui/publish-ui";
@@ -109,8 +109,16 @@ export default class NekoteBlogPlugin extends Plugin {
       id: "publish",
       name: t.commands.publish,
       callback: () => {
-        void this.publish();
+        void this.publish({ kind: "all" });
       },
+    });
+    this.addCommand({
+      id: "publish-note",
+      name: t.commands.publishNote,
+      checkCallback: (checking) =>
+        this.runWithPublishTarget(checking, (file) => {
+          void this.publish({ kind: "note", vaultPath: file.path });
+        }),
     });
     this.addCommand({
       id: "insert-frontmatter",
@@ -194,9 +202,12 @@ export default class NekoteBlogPlugin extends Plugin {
 
   /**
    * vaultを走査してPushする。**同時に1つだけ**（走査中に別の走査が始まると、
-   * 同じPush世代へ違うmanifestを送ることになる）
+   * 同じPush世代へ違うmanifestを送ることになる）。全量・部分でこのガードは共通。
+   *
+   * `scope`は**必須**。省略時を全量にすると、部分反映の導線での渡し忘れが
+   * 型エラーではなく全量反映（他の記事の削除を含む）になる
    */
-  async publish(): Promise<void> {
+  async publish(scope: PublishScope): Promise<void> {
     const t = getTranslations();
     if (this.publishing !== null) {
       new Notice(t.notices.alreadyPublishing);
@@ -212,19 +223,22 @@ export default class NekoteBlogPlugin extends Plugin {
     const ui = createPublishUi(this.app);
     const sleep = createSleep();
     try {
-      await publish({
-        client: this.client,
-        secrets: this.secrets,
-        vault: this.vault,
-        parseYaml,
-        ui,
-        settings: () => this.settings,
-        updateSettings: (patch) => this.updateSettings(patch),
-        sleep: (milliseconds) => sleep(milliseconds, controller.signal),
-        now: () => Date.now(),
-        newVaultId: () => randomBase64Url(16),
-        signal: controller.signal,
-      });
+      await publish(
+        {
+          client: this.client,
+          secrets: this.secrets,
+          vault: this.vault,
+          parseYaml,
+          ui,
+          settings: () => this.settings,
+          updateSettings: (patch) => this.updateSettings(patch),
+          sleep: (milliseconds) => sleep(milliseconds, controller.signal),
+          now: () => Date.now(),
+          newVaultId: () => randomBase64Url(16),
+          signal: controller.signal,
+        },
+        scope,
+      );
     } finally {
       ui.dispose();
       this.publishing = null;
@@ -332,7 +346,7 @@ export default class NekoteBlogPlugin extends Plugin {
         .setTitle(t.commands.publishToNekoteBlog)
         .setIcon("upload")
         .onClick(() => {
-          void this.publish();
+          void this.publish({ kind: "all" });
         }),
     );
     menu.addItem((item) =>
@@ -352,10 +366,18 @@ export default class NekoteBlogPlugin extends Plugin {
     const t = getTranslations();
     menu.addItem((item) =>
       item
+        .setTitle(t.commands.fileMenuPublishNote)
+        .setIcon("file-up")
+        .onClick(() => {
+          void this.publish({ kind: "note", vaultPath: file.path });
+        }),
+    );
+    menu.addItem((item) =>
+      item
         .setTitle(t.commands.publishToNekoteBlog)
         .setIcon("upload")
         .onClick(() => {
-          void this.publish();
+          void this.publish({ kind: "all" });
         }),
     );
     menu.addItem((item) =>
@@ -416,10 +438,18 @@ export default class NekoteBlogPlugin extends Plugin {
     const menu = new Menu();
     menu.addItem((item) =>
       item
+        .setTitle(t.commands.publishNote)
+        .setIcon("file-up")
+        .onClick(() => {
+          void this.publish({ kind: "note", vaultPath: file.path });
+        }),
+    );
+    menu.addItem((item) =>
+      item
         .setTitle(t.commands.publishToNekoteBlog)
         .setIcon("upload")
         .onClick(() => {
-          void this.publish();
+          void this.publish({ kind: "all" });
         }),
     );
     menu.addItem((item) =>
