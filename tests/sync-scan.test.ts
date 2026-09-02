@@ -15,6 +15,7 @@ import {
   type ScanAmount,
   type ScanProgress,
   type ScanResult,
+  type ScanScope,
 } from "../src/sync/scan";
 import type { VaultFileRef, VaultGateway } from "../src/vault/gateway";
 import { baseNameOf, directoryOf, extensionOf, fileNameOf } from "../src/vault/paths";
@@ -111,6 +112,8 @@ class FakeVault implements VaultGateway {
 
 interface SetupOptions {
   contentRoot?: string;
+  /** 部分反映（`mode: "partial"`）の絞り込み */
+  scope?: ScanScope;
   confirmNotes?: (amount: ScanAmount) => Promise<boolean>;
   confirmAssets?: (amount: ScanAmount) => Promise<boolean>;
   onProgress?: (progress: ScanProgress) => void;
@@ -130,6 +133,7 @@ function setup(files: readonly FakeFile[], options: SetupOptions = {}) {
           onProgress: options.onProgress,
         },
         options.contentRoot ?? "blog",
+        options.scope,
       ),
   };
 }
@@ -210,6 +214,97 @@ describe("scanVault(): 公開対象の選び方", () => {
     );
 
     expect(pathsOf(await run())).toEqual(["posts/a.md"]);
+  });
+});
+
+describe("scanVault(): scopeで1件へ絞る", () => {
+  const files: FakeFile[] = [
+    {
+      path: "blog/posts/target.md",
+      content:
+        "---\ntitle: 対象\nthumbnail: ../../assets/thumb.png\ncover: ../assets/cover.png\n---\n\n![猫](../assets/cat.png)\n",
+    },
+    { path: "blog/posts/other.md", content: "![犬](../assets/dog.png)\n" },
+    { path: "blog/assets/cat.png", content: new Uint8Array([1]) },
+    { path: "blog/assets/cover.png", content: new Uint8Array([2]) },
+    { path: "blog/assets/dog.png", content: new Uint8Array([3]) },
+    { path: "assets/thumb.png", content: new Uint8Array([4]) },
+  ];
+  const scope: ScanScope = { vaultPath: "blog/posts/target.md" };
+
+  it("対象ノートと、それが参照するアセットだけをmanifestへ入れる", async () => {
+    const { run } = setup(files, { scope });
+
+    expect(pathsOf(await run())).toEqual([
+      "assets/thumb.png",
+      "blog/assets/cat.png",
+      "blog/assets/cover.png",
+      "posts/target.md",
+    ]);
+  });
+
+  it("他のノートの本文は読まない", async () => {
+    const scoped = setup(files, { scope });
+    const whole = setup(files);
+
+    await scoped.run();
+    await whole.run();
+
+    expect(scoped.vault.readTextCount).toBe(1);
+    expect(whole.vault.readTextCount).toBe(2);
+  });
+
+  it("対象外のノートにpath不備があっても止まらない", async () => {
+    const broken: FakeFile[] = [
+      { path: "blog/posts/target.md", content: NOTE },
+      { path: "blog/posts/back\\slash.md", content: NOTE },
+    ];
+
+    expect(pathsOf(await setup(broken, { scope }).run())).toEqual(["posts/target.md"]);
+
+    // 同じvaultでも全量走査は止まる（黙って除外すると削除になるため）
+    const error = await rejection(setup(broken).run());
+
+    expect(error).toBeInstanceOf(ScanAbortedError);
+    expect(messageOf(error)).toContain("blog/posts/back\\slash.md");
+  });
+
+  it.each([
+    ["コンテンツルート外", "other/posts/a.md"],
+    ["posts/・pages/の外", "blog/notes/a.md"],
+    [".mdでない", "blog/posts/cat.png"],
+    ["vaultに無い", "blog/posts/missing.md"],
+  ])("%sノートをscopeにすると中止する", async (_label, vaultPath) => {
+    const { run } = setup(
+      [
+        { path: "blog/posts/target.md", content: NOTE },
+        { path: "other/posts/a.md", content: NOTE },
+        { path: "blog/notes/a.md", content: NOTE },
+        { path: "blog/posts/cat.png", content: new Uint8Array([1]) },
+      ],
+      { scope: { vaultPath } },
+    );
+
+    const error = await rejection(run());
+
+    expect(error).toBeInstanceOf(ScanAbortedError);
+    expect(messageOf(error)).toContain(vaultPath);
+  });
+
+  it("ScanResultの形は変わらず、articlesが1件になる", async () => {
+    const result = await setup(files, { scope }).run();
+
+    expect(result.contentRoot).toBe("blog");
+    expect(result.manifestHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.articles).toEqual([
+      { path: "posts/target.md", title: "対象", draft: false, issues: [] },
+    ]);
+    expect(result.summary.markdown.count).toBe(1);
+    expect(result.summary.asset.count).toBe(3);
+    expect(result.summary.publishedCount).toBe(1);
+    expect(new Uint8Array(await result.loadBlob(shaOf(result, "assets/thumb.png")))).toEqual(
+      new Uint8Array([4]),
+    );
   });
 });
 

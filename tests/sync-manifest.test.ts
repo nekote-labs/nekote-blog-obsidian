@@ -191,6 +191,7 @@ describe("buildSyncManifest()", () => {
     vaultId: "vault-abcdefgh",
     contentRoot: "blog",
     baseRevision: 3,
+    mode: "full" as const,
     entries: [markdown("posts/a.md")],
   };
 
@@ -200,8 +201,22 @@ describe("buildSyncManifest()", () => {
       vaultId: "vault-abcdefgh",
       contentRoot: "blog",
       baseRevision: 3,
+      mode: "full",
       entries: [markdown("posts/a.md")],
     });
+  });
+
+  it.each(["full", "partial"] as const)("mode: %sをそのまま載せる", (mode) => {
+    expect(buildSyncManifest({ ...input, mode }).mode).toBe(mode);
+  });
+
+  it("modeが違ってもmanifestHashは変わらない", async () => {
+    const full = buildSyncManifest({ ...input, mode: "full" });
+    const partial = buildSyncManifest({ ...input, mode: "partial" });
+
+    expect(await manifestHash(partial.contentRoot, partial.entries)).toBe(
+      await manifestHash(full.contentRoot, full.entries),
+    );
   });
 
   it("entriesの配列は入力と共有しない", () => {

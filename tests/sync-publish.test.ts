@@ -17,6 +17,7 @@ import { DEFAULT_SETTINGS, type PluginSettings } from "../src/storage/plugin-dat
 import { SecretStore } from "../src/storage/secrets";
 import {
   publish,
+  quoteContentRoot,
   type ConfirmRequest,
   type PublishDeps,
   type PublishReport,
@@ -32,6 +33,7 @@ import {
   take,
   MANIFEST_HASH,
   PUSH_ID,
+  type BeginOverrides,
 } from "./support/push-fixtures";
 
 const VAULT_ID = "vault-8f3a2b1c9d0e";
@@ -54,6 +56,21 @@ interface FakeFile {
   path: string;
   /** 省略すると読み取り失敗（クラウド同期が終わっていないファイルの再現） */
   text?: string;
+}
+
+/** 部分反映用。対象ノートは参照アセットを1件持ち、もう1件のノートは載らない */
+function notesWithAsset(): FakeFile[] {
+  return [
+    {
+      path: "blog/posts/hello.md",
+      text: "---\ntitle: こんにちは\nthumbnail: ../assets/cat.png\n---\n\n本文です。\n",
+    },
+    {
+      path: "blog/posts/draft.md",
+      text: "---\ntitle: 下書き\ndraft: true\n---\n\nまだ書きかけです。\n",
+    },
+    { path: "blog/assets/cat.png", text: "cat" },
+  ];
 }
 
 /** コンテンツルート配下に公開対象のノートを2件だけ置いた小さなvault */
@@ -113,6 +130,30 @@ function statusResponse(
   overrides: Partial<PushStatusResponse> = {},
 ): PushStatusResponse {
   return pushStatusResponse(state, { counts: { published: 1, draft: 1 }, ...overrides });
+}
+
+/** 部分反映の応答。`mode`が送ったものと違うとプラグインは原本を送らずに中止する */
+function partialBeginResponse(overrides: BeginOverrides = {}): PushBeginResponse {
+  const { preflight, ...rest } = overrides;
+  return pushBeginResponse({
+    mode: "partial",
+    preflight: {
+      addedCount: 0,
+      updatedCount: 1,
+      deletedCount: 0,
+      unchangedCount: 0,
+      untouchedCount: 3,
+      ...preflight,
+    },
+    ...rest,
+  });
+}
+
+function partialStatusResponse(
+  state: PushState,
+  overrides: Partial<PushStatusResponse> = {},
+): PushStatusResponse {
+  return statusResponse(state, { mode: "partial", ...overrides });
 }
 
 function appliedManifest(
@@ -283,11 +324,33 @@ function titles(harness: Harness): string[] {
   return harness.confirms.map((request) => request.title);
 }
 
+/** 部分反映の記録済みrevision。サーバーの`appliedRevision`と一致している状態 */
+const LAST_PUSH_AT_12: PluginSettings["lastPush"] = {
+  revision: 12,
+  manifestHash: "local-hash",
+  syncedAt: "2026-08-31T00:00:00.000Z",
+};
+
+/** 部分反映の前提（vault ID一致・`appliedRevision >= 1`・`lastPush`あり）が揃ったvault */
+function createPartialHarness(options: PublishOptions = {}): Harness {
+  return createHarness({
+    lastPush: LAST_PUSH_AT_12,
+    files: notesWithAsset(),
+    begin: [partialBeginResponse()],
+    status: [partialStatusResponse("succeeded")],
+    ...options,
+  });
+}
+
+function publishNote(harness: Harness, vaultPath = "blog/posts/hello.md"): Promise<void> {
+  return publish(harness.deps, { kind: "note", vaultPath });
+}
+
 describe("publish: 前提の確認", () => {
   it("コンテンツルートが未選択なら通知だけで何も送らない", async () => {
     const harness = createHarness({ contentRoot: null });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.notices).toEqual(["Select a content root in the plugin settings first."]);
     expect(harness.calls).toEqual([]);
@@ -299,7 +362,7 @@ describe("publish: vault IDの突き合わせ", () => {
   it("サーバーが未接続でローカルにvault IDが無ければ新しく作って保存する", async () => {
     const harness = createHarness({ source: { kind: "none" }, vaultId: null });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.settings.vaultId).toBe(CREATED_VAULT_ID);
     expect(titles(harness)).toEqual(["Publish to Nekote Blog"]);
@@ -311,7 +374,7 @@ describe("publish: vault IDの突き合わせ", () => {
   it("サーバーがObsidian接続済みでローカルにvault IDが無ければ、確認してから保存する", async () => {
     const harness = createHarness({ vaultId: null });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual([
       "Treat this as the connected vault?",
@@ -324,7 +387,7 @@ describe("publish: vault IDの突き合わせ", () => {
   it("その確認を断ると何も送らず、vault IDも保存しない", async () => {
     const harness = createHarness({ vaultId: null, answer: () => false });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.settings.vaultId).toBeNull();
     expect(harness.calls).toEqual(["getConnection"]);
@@ -334,7 +397,7 @@ describe("publish: vault IDの突き合わせ", () => {
   it("サーバーと違うvault IDを持っているときは、置き換えの確認を出す", async () => {
     const harness = createHarness({ vaultId: "vault-local-0001" });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual(["This is not the connected vault", "Publish to Nekote Blog"]);
     expect(harness.confirms[0]?.danger).toBe(true);
@@ -346,7 +409,7 @@ describe("publish: vault IDの突き合わせ", () => {
   it("置き換えの確認を断ると何も送らない", async () => {
     const harness = createHarness({ vaultId: "vault-local-0001", answer: () => false });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.settings.vaultId).toBe("vault-local-0001");
     expect(harness.calls).toEqual(["getConnection"]);
@@ -362,7 +425,7 @@ describe("publish: コンテンツルートとrevisionの確認", () => {
       answer: () => false,
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual(["Change the content root"]);
     expect(harness.calls).toEqual(["getConnection"]);
@@ -375,7 +438,7 @@ describe("publish: コンテンツルートとrevisionの確認", () => {
       answer: () => false,
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.calls).toEqual(["getConnection", "getAppliedManifest"]);
     expect(titles(harness)).toEqual(["Published from another device"]);
@@ -391,7 +454,7 @@ describe("publish: コンテンツルートとrevisionの確認", () => {
       lastPush: { revision: 12, manifestHash: "local-hash", syncedAt: "2026-08-31T00:00:00.000Z" },
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual(["Publish to Nekote Blog"]);
     expect(harness.calls).not.toContain("getAppliedManifest");
@@ -404,7 +467,7 @@ describe("publish: 反映前の確認", () => {
       answer: (request) => request.title !== "Publish to Nekote Blog",
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual(["Publish to Nekote Blog"]);
     expect(harness.calls).toEqual(["getConnection"]);
@@ -414,7 +477,7 @@ describe("publish: 反映前の確認", () => {
   it("反映先のブログを最初に見せる", async () => {
     const harness = createHarness();
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.confirms[0]?.paragraphs[0]).toBe(
       "Publishing to: ねこのブログ (neko.nekote.blog)",
@@ -424,7 +487,7 @@ describe("publish: 反映前の確認", () => {
   it("サーバーが確認を求めたときも反映先のブログを見せる", async () => {
     const harness = createHarness({ begin: [beginResponse({ confirmationRequired: true })] });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     const preflight = harness.confirms[1];
     expect(preflight?.title).toBe("Review what will be published");
@@ -436,7 +499,7 @@ describe("publish: revision_conflict", () => {
   it("承諾したときだけサーバーの最新revisionをbaseにして送り直す", async () => {
     const harness = createHarness({ begin: [apiError("revision_conflict"), beginResponse()] });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual([
       "Publish to Nekote Blog",
@@ -453,7 +516,7 @@ describe("publish: revision_conflict", () => {
       answer: (request) => request.title === "Publish to Nekote Blog",
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.notices).toEqual(["Publish cancelled."]);
     expect(harness.calls).not.toContain("finalizePush");
@@ -465,7 +528,7 @@ describe("publish: 反映の結果", () => {
   it("成功するとlastPushを保存し、pendingPushIdを消す", async () => {
     const harness = createHarness();
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.settings.lastPush).toEqual({
       revision: 13,
@@ -484,7 +547,7 @@ describe("publish: 反映の結果", () => {
   it("失敗するとlastPushを更新しない", async () => {
     const harness = createHarness({ status: [statusResponse("failed")] });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.settings.lastPush).toBeNull();
     expect(harness.patches.some((patch) => "lastPush" in patch)).toBe(false);
@@ -502,7 +565,7 @@ describe("publish: 中断したPushの再開", () => {
       status: [statusResponse("succeeded")],
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.calls).toEqual(["getPushStatus:push-previous"]);
     expect(harness.vaultCalls).toEqual([]);
@@ -515,7 +578,7 @@ describe("publish: 中断したPushの再開", () => {
       status: [statusResponse("verifying"), statusResponse("succeeded")],
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.calls).toEqual([
       "getPushStatus:push-previous",
@@ -535,7 +598,7 @@ describe("publish: 失敗の見せ方", () => {
       files: [{ path: "blog/posts/hello.md" }, ...notesUnder("blog").slice(1)],
     });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.calls).toEqual(["getConnection"]);
     expect(harness.reports[0]).toMatchObject({
@@ -548,12 +611,245 @@ describe("publish: 失敗の見せ方", () => {
   it("push_in_progressは分かりやすい通知にする", async () => {
     const harness = createHarness({ begin: [apiError("push_in_progress")] });
 
-    await publish(harness.deps);
+    await publish(harness.deps, { kind: "all" });
 
     expect(harness.notices).toEqual([
-      "The previous publish is still being processed on the server. It stays for a short " +
-        "while even right after you cancel it, so wait a moment and run it again.",
+      "The previous publish is still being processed on the server. Even right after you " +
+        "cancel, it stays in progress for a short while. Wait a moment and run it again.",
     ]);
     expect(harness.reports).toEqual([]);
+  });
+});
+
+describe("publish: このノートだけ反映（前提の確認）", () => {
+  const cases: { name: string; options: PublishOptions }[] = [
+    { name: "ソースが未接続", options: { source: { kind: "none" } } },
+    { name: "別のソースが接続されている", options: { source: { kind: "other", type: "notion" } } },
+    { name: "vault IDがローカルに無い", options: { vaultId: null } },
+    { name: "vault IDがサーバーと違う", options: { vaultId: "vault-local-0001" } },
+    {
+      name: "サーバーがまだ1度も反映していない",
+      options: { source: { ...OBSIDIAN_SOURCE, appliedRevision: 0 } },
+    },
+    { name: "plugin dataに全量反映の成功記録が無い", options: { lastPush: null } },
+  ];
+
+  for (const { name, options } of cases) {
+    it(`${name}なら走査もbeginもせず、先に全体を反映するよう促す`, async () => {
+      const harness = createPartialHarness(options);
+
+      await publishNote(harness);
+
+      expect(harness.notices).toEqual([
+        "Nekote Blog: Publish the whole vault once before you publish a single note.",
+      ]);
+      expect(harness.calls).toEqual(["getConnection"]);
+      expect(harness.vaultCalls).toEqual([]);
+      // vault IDの作成・置き換えの確認は部分反映では出さない
+      expect(harness.confirms).toEqual([]);
+      expect(harness.patches).toEqual([]);
+    });
+  }
+
+  it("コンテンツルートがサーバーと違うなら、確認を出さずに全体反映へ誘導する", async () => {
+    const harness = createPartialHarness({ source: { ...OBSIDIAN_SOURCE, contentRoot: "notes" } });
+
+    await publishNote(harness);
+
+    expect(harness.notices).toEqual([
+      "Nekote Blog: The content root has changed. Run Publish to publish everything first.",
+    ]);
+    expect(harness.calls).toEqual(["getConnection"]);
+    expect(harness.vaultCalls).toEqual([]);
+    expect(harness.confirms).toEqual([]);
+  });
+});
+
+describe("publish: このノートだけ反映", () => {
+  it("対象ノートとその参照アセットだけをmode partialで送る", async () => {
+    const harness = createPartialHarness();
+
+    await publishNote(harness);
+
+    expect(harness.begins[0]?.mode).toBe("partial");
+    expect(harness.begins[0]?.entries.map((entry) => entry.path)).toEqual([
+      "blog/assets/cat.png",
+      "posts/hello.md",
+    ]);
+    expect(harness.begins[0]?.baseRevision).toBe(12);
+    expect(harness.vaultCalls).not.toContain("readText:blog/posts/draft.md");
+  });
+
+  it("送信前の確認に反映先・対象ノート・他の記事への影響を出す", async () => {
+    const harness = createPartialHarness();
+
+    await publishNote(harness);
+
+    expect(harness.confirms[0]).toMatchObject({
+      title: "Publish this note",
+      confirmLabel: "Publish this note",
+    });
+    expect(harness.confirms[0]?.paragraphs).toEqual([
+      "Publishing to: ねこのブログ (neko.nekote.blog)",
+      'Publishing only "こんにちは" (posts/hello.md) and 1 referenced asset.',
+      "Other posts are left as they are. Moves, renames and deletions are not applied by this " +
+        "action. Run Publish for those.",
+    ]);
+  });
+
+  it("下書きのノートなら非公開になることを添える", async () => {
+    const harness = createPartialHarness();
+
+    await publishNote(harness, "blog/posts/draft.md");
+
+    expect(harness.confirms[0]?.paragraphs[2]).toBe(
+      "This note is a draft, so it stays unpublished on your blog.",
+    );
+  });
+
+  it("送信前の確認を断ると何も送らない", async () => {
+    const harness = createPartialHarness({ answer: () => false });
+
+    await publishNote(harness);
+
+    expect(titles(harness)).toEqual(["Publish this note"]);
+    expect(harness.calls).toEqual(["getConnection"]);
+    expect(harness.reports).toEqual([]);
+  });
+
+  it("公開対象でないノートを指すと走査で止まる", async () => {
+    const harness = createPartialHarness();
+
+    await publishNote(harness, "blog/assets/cat.png");
+
+    expect(harness.calls).toEqual(["getConnection"]);
+    expect(harness.reports[0]).toMatchObject({ outcome: "failed", headline: "Publish stopped" });
+    expect(harness.reports[0]?.paragraphs[0]).toBe(
+      "This note is not one of the notes that get published: blog/assets/cat.png",
+    );
+  });
+
+  it("サーバーが確認を求めたら、削除を含まない件数を出す", async () => {
+    const harness = createPartialHarness({
+      begin: [partialBeginResponse({ confirmationRequired: true })],
+    });
+
+    await publishNote(harness);
+
+    expect(harness.confirms[1]?.paragraphs).toContain(
+      "Posts: 0 added / 1 updated / 0 unchanged / 3 untouched",
+    );
+  });
+
+  it("成功すると部分反映の見出しと他の記事の件数を出し、lastPushを更新する", async () => {
+    const harness = createPartialHarness();
+
+    await publishNote(harness);
+
+    expect(harness.reports[0]).toMatchObject({
+      outcome: "applied",
+      headline: "This note was published (revision 13)",
+    });
+    expect(harness.reports[0]?.paragraphs[0]).toBe("The other 3 posts are unchanged.");
+    expect(harness.settings.lastPush).toEqual({
+      revision: 13,
+      manifestHash: MANIFEST_HASH,
+      syncedAt: new Date(NOW).toISOString(),
+    });
+  });
+
+  it("サーバーがmodeを返さなければ、原本を送らずpushIdも記録せずに中止する", async () => {
+    const harness = createPartialHarness({ begin: [beginResponse()] });
+
+    await publishNote(harness);
+
+    expect(harness.calls).toEqual(["getConnection", "beginPush"]);
+    expect(harness.secrets.getPendingPushId()).toBeNull();
+    expect(harness.reports[0]).toMatchObject({ outcome: "failed", headline: "Publish stopped" });
+    expect(harness.reports[0]?.paragraphs[0]).toBe(
+      "The server could not confirm the publish mode, so nothing was sent. Update the plugin, " +
+        "or run Publish to publish everything.",
+    );
+  });
+
+  it("サーバーが部分反映を受け付けないときは専用の通知にする", async () => {
+    const harness = createPartialHarness({ begin: [apiError("partial_push_not_allowed")] });
+
+    await publishNote(harness);
+
+    expect(harness.notices).toEqual([
+      "Nekote Blog: You cannot publish a single note right now. Run Publish to publish everything.",
+    ]);
+    expect(harness.reports).toEqual([]);
+  });
+});
+
+describe("publish: このノートだけ反映と他端末の反映", () => {
+  /** 他の端末がrev 13まで進めている（ローカルの記録は12） */
+  const AHEAD_SOURCE: ConnectionSource = { ...OBSIDIAN_SOURCE, appliedRevision: 13 };
+
+  it("削除の一覧を出さない確認をしてから送り、成功してもlastPushは据え置く", async () => {
+    const harness = createPartialHarness({ source: AHEAD_SOURCE });
+
+    await publishNote(harness);
+
+    expect(titles(harness)).toEqual(["Published from another device", "Publish this note"]);
+    expect(harness.confirms[0]?.sections).toBeUndefined();
+    expect(harness.confirms[0]?.confirmLabel).toBe("Publish this note");
+    // 差分一覧を作らないので適用済みmanifestは読まない
+    expect(harness.calls).not.toContain("getAppliedManifest");
+    expect(harness.begins[0]?.baseRevision).toBe(13);
+    expect(harness.reports[0]?.outcome).toBe("applied");
+    expect(harness.settings.lastPush).toEqual(LAST_PUSH_AT_12);
+    expect(harness.patches.some((patch) => "lastPush" in patch)).toBe(false);
+  });
+
+  it("その確認を断ると何も送らない", async () => {
+    const harness = createPartialHarness({ source: AHEAD_SOURCE, answer: () => false });
+
+    await publishNote(harness);
+
+    expect(titles(harness)).toEqual(["Published from another device"]);
+    expect(harness.calls).toEqual(["getConnection"]);
+  });
+
+  it("送信中に他の反映が適用されたら、削除の一覧なしで再送を確認しlastPushを据え置く", async () => {
+    const harness = createPartialHarness({
+      begin: [apiError("revision_conflict"), partialBeginResponse()],
+    });
+
+    await publishNote(harness);
+
+    expect(titles(harness)).toEqual(["Publish this note", "Another publish was applied first"]);
+    expect(harness.confirms[1]?.sections).toBeUndefined();
+    expect(harness.begins.map((manifest) => manifest.baseRevision)).toEqual([12, 20]);
+    expect(harness.reports[0]?.outcome).toBe("applied");
+    expect(harness.settings.lastPush).toEqual(LAST_PUSH_AT_12);
+  });
+
+  it("再開した部分反映は部分の見出しで見せ、lastPushを更新しない", async () => {
+    const harness = createHarness({
+      pendingPushId: "push-previous",
+      lastPush: LAST_PUSH_AT_12,
+      status: [partialStatusResponse("succeeded")],
+    });
+
+    await publish(harness.deps, { kind: "all" });
+
+    expect(harness.calls).toEqual(["getPushStatus:push-previous"]);
+    expect(harness.reports[0]?.headline).toBe("This note was published (revision 13)");
+    // begin応答が無いので「他N件はそのまま」は出せない
+    expect(harness.reports[0]?.paragraphs).toEqual(["published: 1 / draft: 1"]);
+    expect(harness.settings.lastPush).toEqual(LAST_PUSH_AT_12);
+  });
+});
+
+describe("quoteContentRoot()", () => {
+  it("実pathは引用符で囲む", () => {
+    expect(quoteContentRoot("blog")).toBe('"blog"');
+  });
+
+  it("vaultルートはラベルをそのまま出す（二重に括らない）", () => {
+    expect(quoteContentRoot("")).toBe("(vault root)");
   });
 });

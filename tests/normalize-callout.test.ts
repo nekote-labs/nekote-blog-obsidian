@@ -70,7 +70,7 @@ describe("normalizeCallouts(): typeの対応", () => {
 
     expect(text).toBe(md(":::note[独自]", "本文", ":::"));
     expect(warnings).toEqual([
-      "This callout type is not supported, so it was rendered as a note: custom",
+      'This callout type is not supported, so it was rendered as a "note" callout: custom',
     ]);
   });
 });

@@ -4,21 +4,29 @@ import type { LocaleStrings } from "./en";
 export const ja = {
   commands: {
     openSettings: "設定を開く",
-    publish: "Nekote Blogへ反映",
-    insertFrontmatter: "フロントマターを挿入",
+    publish: "反映",
+    publishNote: "このノートだけ反映",
+    insertFrontmatter: "Front Matterを挿入",
     pickThumbnail: "サムネイル画像を選択",
     pickCover: "カバー画像を選択",
     publishToNekoteBlog: "Nekote Blogへ反映",
+    fileMenuPublishNote: "Nekote Blog: このノートだけ反映",
     fileMenuPickThumbnail: "Nekote Blog: サムネイル画像を選択",
     fileMenuPickCover: "Nekote Blog: カバー画像を選択",
+  },
+
+  publishMenu: {
+    notConnected: "ブログと未接続です",
+    contentRootNotSelected: "コンテンツルートが未設定です",
+    fileMenuNotConnected: "Nekote Blog: ブログと未接続です",
   },
 
   notices: {
     alreadyPublishing: "Nekote Blog: すでに反映を実行しています。",
     connectFirst: "Nekote Blog: 先に設定画面からブログと接続してください。",
-    frontmatterInserted: "Nekote Blog: フロントマターを挿入しました。",
-    frontmatterAlreadyPresent: "Nekote Blog: フロントマターは挿入済みです。",
-    frontmatterInsertFailed: "Nekote Blog: フロントマターを挿入できませんでした。",
+    frontmatterInserted: "Nekote Blog: Front Matterを挿入しました。",
+    frontmatterAlreadyPresent: "Nekote Blog: Front Matterは挿入済みです。",
+    frontmatterInsertFailed: "Nekote Blog: Front Matterを挿入できませんでした。",
     openSettingsManually:
       "Nekote Blog: 設定 → コミュニティプラグイン → Nekote Blogから設定を開いてください。",
   },
@@ -31,7 +39,7 @@ export const ja = {
         "ブラウザで開いたページに次のコードが表示されていることを確認して、承認してください。",
       approvalPage: "承認ページ",
       openAgain: "もう一度開く",
-      cancel: "中止",
+      cancel: "キャンセル",
     },
     connection: {
       heading: "接続",
@@ -50,39 +58,40 @@ export const ja = {
       refreshButton: "最新の状態を確認",
       disconnect: "接続を解除",
       disconnectDesc:
-        "この端末のトークンを失効させます。公開中の記事はそのまま残ります。再び反映するには接続し直します。",
+        "この端末からは反映できなくなります。公開中の記事はそのまま残ります。再び反映するには接続し直します。",
       disconnectButton: "解除",
     },
     status: {
       notChecked: "未確認",
-      noSource: "コンテンツソース未設定（初回の反映で接続されます）",
+      noSource: "記事ソース未設定（初回の反映で接続されます）",
       otherSource: (type: string) =>
         `別のソース（${type}）が接続中です。初回の反映で切り替わります。`,
       obsidianSource: (revision: number, contentRoot: string) =>
-        `Obsidianソース接続中 / revision ${revision} / コンテンツルート「${contentRoot}」`,
+        `Obsidianソース接続中 / revision ${revision} / コンテンツルート${contentRoot}`,
     },
-    contentLocation: {
-      heading: "記事を置く場所",
+    content: {
+      heading: "記事",
       contentRoot: "コンテンツルート",
       contentRootDesc:
         "公開の起点にするフォルダです。直下の posts/ が記事、pages/ が固定ページになります。選ぶまで反映できません。",
       contentRootNotSelected: "（未選択）",
       imageImportFolder: "画像の取り込み先",
       imageImportFolderDesc:
-        "サムネイル・カバーの「画像ファイルを取り込む…」で保存するフォルダです。",
+        "サムネイル・カバー画像の選択で「画像ファイルを取り込む…」を選んだときの保存先フォルダです。",
       imageImportFolderDefault: "コンテンツルート直下の assets（既定）",
       folderNotFound: (path: string) => `${path}（見つかりません）`,
+      autoInsertFrontmatter: "新規ノートにFront Matterを自動挿入",
+      autoInsertFrontmatterDesc:
+        "posts・pagesの中に作った空のノートや、外から移してきたノートへ、公開用のFront Matter（draft: trueなど）を自動で足します。足りないキーだけ足し、すでにある値は変えません。",
     },
     publishing: {
       heading: "公開",
-      autoInsertFrontmatter: "新規ノートにフロントマターを自動挿入",
-      autoInsertFrontmatterDesc:
-        "posts・pages配下に作った空のノートへ、公開用のフロントマター（draft: trueなど）を最初から入れます。",
       lastPublish: "最終反映",
       lastPublishNever: "まだ反映していません。",
       lastPublishAt: (dateTime: string, revision: number) => `${dateTime}（revision ${revision}）`,
       publish: "Nekote Blogへ反映",
-      publishDesc: "いまのvaultの内容を送ります。送る前に内容を確認できます。",
+      publishDesc:
+        "コンテンツルートのposts/・pages/にあるノートと、そのノートが参照するファイルを送ります。送る前に内容を確認できます。",
       publishButton: "反映",
     },
     advanced: {
@@ -99,7 +108,7 @@ export const ja = {
       connectionRefreshed: "Nekote Blog: 接続状態を更新しました。",
       disconnected: "Nekote Blog: 接続を解除しました。",
       disconnectedButNotRevoked: (reason: string) =>
-        `Nekote Blog: この端末の情報は削除しましたが、サーバー側の失効に失敗しました（${reason}）。ダッシュボードの端末一覧から失効させてください。`,
+        `Nekote Blog: この端末の接続情報は削除しましたが、サーバー側の解除に失敗しました（${reason}）。ダッシュボードの端末一覧から解除してください。`,
       unknownReason: "原因不明",
       unexpectedError: "予期しないエラーが発生しました。しばらく待ってからお試しください。",
     },
@@ -111,17 +120,18 @@ export const ja = {
     checkingPreviousPublish: "前回の反映の状況を確認しています…",
     readingNotes: "ノートを読んでいます…",
     readingAssets: "参照アセットを読んでいます…",
-    cancelled: "反映を取り消しました。",
+    cancelled: "反映をキャンセルしました。",
     vaultRoot: "（vaultのルート）",
+    quotedPath: (path: string) => `「${path}」`,
     blog: (title: string, subdomain: string) =>
       `反映先のブログ: ${title}（${subdomain}.nekote.blog）`,
     scanConfirm: {
       noteTitle: "ノートが多いので確認します",
       assetTitle: "参照アセットが多いので確認します",
       noteAmount: (contentRoot: string, count: number, size: string) =>
-        `コンテンツルート「${contentRoot}」のノートは${count}件・${size}です。`,
+        `コンテンツルート${contentRoot}のノートは${count}件・${size}です。`,
       assetAmount: (contentRoot: string, count: number, size: string) =>
-        `コンテンツルート「${contentRoot}」の参照アセットは${count}件・${size}です。`,
+        `コンテンツルート${contentRoot}の参照アセットは${count}件・${size}です。`,
       noteWarning:
         "このまま続けると、これらのノートを読み取ります。コンテンツルートの指定が正しいか確認してください。",
       assetWarning: "このまま続けると、これらのアセットを読み取ります。",
@@ -136,15 +146,40 @@ export const ja = {
         assetCount: number,
         contentRoot: string,
       ) =>
-        `コンテンツルート「${contentRoot}」のノート${noteCount}件（公開${publishedCount}件・下書き${draftCount}件）・参照アセット${assetCount}件を反映します。`,
+        `コンテンツルート${contentRoot}のノート${noteCount}件（公開${publishedCount}件・下書き${draftCount}件）・参照アセット${assetCount}件を反映します。`,
       note: "変更のないファイルは送信されません。前回の反映から消えたノートはブログからも削除されます。",
       confirmLabel: "反映する",
+    },
+    partial: {
+      needsFullPublish:
+        "Nekote Blog: 先に全体を反映してください。1件だけの反映はそのあとで使えます。",
+      contentRootChanged:
+        "Nekote Blog: コンテンツルートが変わっています。先に「Nekote Blogへ反映」で全体を反映してください。",
+      notAllowed:
+        "Nekote Blog: この状態ではこのノートだけの反映はできません。「Nekote Blogへ反映」で全体を反映してください。",
+      confirm: {
+        title: "このノートだけ反映します",
+        summary: (title: string, path: string, assetCount: number) =>
+          `「${title}」（${path}）と参照アセット${assetCount}件だけを反映します。`,
+        draftNote: "このノートは下書きなので、ブログでは非公開になります。",
+        note: "他の記事はそのままです。移動・改名・削除はこの操作では反映されません。「Nekote Blogへ反映」で全体を反映してください。",
+        confirmLabel: "このノートだけ反映する",
+      },
+      anotherDevice: {
+        detail:
+          "他の端末が反映しています。このノートはその上に重ねて反映され、他の記事は変わりません。この端末を最新にするには、vaultを同期してから「Nekote Blogへ反映」を実行してください。",
+        confirmLabel: "このノートだけ反映する",
+      },
+      preflightCounts: (added: number, updated: number, unchanged: number, untouched: number) =>
+        `記事: 追加 ${added}件 / 更新 ${updated}件 / 変更なし ${unchanged}件 / 今回載せない ${untouched}件`,
+      reportApplied: (revision: number) => `このノートを反映しました（revision ${revision}）`,
+      untouched: (count: number) => `他の${count}件はそのままです。`,
     },
     sameVault: {
       title: "接続済みのvaultとして扱いますか？",
       intro: "このブログにはすでにObsidianのvaultが接続されています。",
       detail: (revision: number) =>
-        `この端末のvaultを同じvaultとして扱うと、続きのrevision（現在 ${revision}）から反映します。別のvaultなら、ここで中止してください。`,
+        `この端末のvaultを同じvaultとして扱うと、続きのrevision（現在 ${revision}）から反映します。別のvaultなら、ここでキャンセルしてください。`,
       serverContentRoot: "サーバーのコンテンツルート",
       confirmLabel: "同じvaultとして続ける",
     },
@@ -157,7 +192,7 @@ export const ja = {
     },
     contentRootChange: {
       title: "コンテンツルートを変更します",
-      detail: (from: string, to: string) => `公開の起点を「${from}」から「${to}」へ変えます。`,
+      detail: (from: string, to: string) => `公開の起点を${from}から${to}へ変えます。`,
       warning: "新しい起点にないノートは、公開中の記事から削除されます。",
       confirmLabel: "変更して続ける",
     },
@@ -175,7 +210,7 @@ export const ja = {
     },
     reasons: {
       initialConnect: "このブログへの初めての反映です。",
-      sourceSwitch: "別のコンテンツソースからObsidianへ切り替えます。既存の記事は作り直されます。",
+      sourceSwitch: "別の記事ソースからObsidianへ切り替えます。既存の記事は作り直されます。",
       contentRootChanged: "コンテンツルートが変わります。",
       largeDelete: "削除される記事が多くあります。",
       largeChange: "追加・更新される記事が多くあります。",
@@ -204,8 +239,10 @@ export const ja = {
       stopped: "反映を中止しました",
       stoppedDetail: "公開中の記事は変わっていません。",
     },
+    modeMismatch:
+      "サーバーが反映モードを確認できなかったため、何も送っていません。プラグインを更新するか、「Nekote Blogへ反映」で全体を反映してください。",
     pushInProgress:
-      "前の反映がサーバー側で処理中です。取り消した直後の場合も少しのあいだ残るので、しばらく待ってからもう一度実行してください。",
+      "前の反映がサーバー側でまだ処理中です。キャンセルした直後でも、サーバー側の処理はしばらく続きます。少し待ってからもう一度実行してください。",
     unexpectedError: "Nekote Blog: 予期しないエラーが発生しました。",
   },
 
@@ -226,25 +263,26 @@ export const ja = {
     assetTooLarge: (limit: string, path: string) =>
       `アセットが上限（${limit}）を超えています: ${path}`,
     caseCollision: (first: string, second: string) =>
-      `大文字小文字だけが違うpathは同時に扱えません。どちらかの名前を変えてください: ${first} / ${second}`,
+      `大文字小文字だけが違うパスは同時に扱えません。どちらかの名前を変えてください: ${first} / ${second}`,
     normalizationCollision: (first: string, second: string) =>
       `Unicodeの正規化で同じ名前になるファイルが2つあります。どちらかの名前を変えてください: ${first} / ${second}`,
-    unsupportedPathCharacters: (path: string) => `pathに使えない文字が含まれています: ${path}`,
+    unsupportedPathCharacters: (path: string) => `パスに使えない文字が含まれています: ${path}`,
+    notPublishTarget: (path: string) => `このノートは公開対象ではありません: ${path}`,
     unreadable: (path: string) =>
-      `ファイルを読み取れませんでした: ${path}\nクラウド同期が終わっていない可能性があります。すべてのファイルを端末へダウンロードしてから、もう一度実行してください。`,
+      `ファイルを読み取れませんでした。クラウド同期が終わっていない可能性があります。すべてのファイルを端末へダウンロードしてから、もう一度実行してください。対象: ${path}`,
     vaultChanged:
       "反映の途中でvaultの内容が変わりました。もう一度「Nekote Blogへ反映」を実行してください。",
   },
 
   normalize: {
-    nestedCallout: "入れ子のCalloutは通常の引用として表示しました。",
+    nestedCallout: "入れ子のコールアウトは通常の引用として表示しました。",
     unsupportedCalloutType: (identifier: string) =>
-      `対応していないCalloutの種類「${identifier}」はnoteとして表示しました。`,
+      `対応していないコールアウトの種類「${identifier}」は「note」として表示しました。`,
     noteEmbed: "ノートの埋め込みは展開せず、リンクにしました。",
     unresolvedLink: (linkpath: string) => `リンク先を解決できませんでした: ${linkpath}`,
     unresolvedHeading: (heading: string) => `見出しへのリンクを解決できませんでした: ${heading}`,
     unusablePathCharacters: (path: string) =>
-      `pathに使えない文字が含まれるため参照を落としました: ${path}`,
+      `パスに使えない文字が含まれるため参照を落としました: ${path}`,
     blockReferenceTextOnly: "ブロック参照は表示できないため文字だけを残しました。",
     blockReferenceToTop: "ブロック参照は記事の先頭へのリンクになりました。",
     unpublishedNoteLink: (path: string) =>
@@ -252,31 +290,32 @@ export const ja = {
     svgTextOnly: (path: string) => `SVGは公開できないため文字だけを残しました: ${path}`,
     unsupportedFormatTextOnly: (path: string) =>
       `対応していない形式のファイルは文字だけを残しました: ${path}`,
-    ignoredOption: (option: string) => `Nekoteに対応する表現がない指定は無視しました: ${option}`,
-    imageSizeIgnored: "画像のサイズ指定は反映されません。",
+    ignoredOption: (option: string) =>
+      `リンクの「#」以降の指定はNekote Blogでは表せないため無視しました: ${option}`,
+    imageSizeIgnored: "画像のサイズ指定は無視されます。",
     outsideVault: (text: string) => `vaultの外を指す参照は取り込めません: ${text}`,
     referencedFileNotFound: (path: string) => `本文が参照するファイルが見つかりません: ${path}`,
     svgDropped: (path: string) => `SVGは公開できないため参照を落としました: ${path}`,
     tooManyAssets: (limit: number) =>
       `本文が参照するアセットが${limit}件を超えています。減らしてください。`,
-    assetLimitReached: "参照アセットが上限に達したため、frontmatterの画像を省略しました。",
+    assetLimitReached: "参照アセットが上限に達したため、Front Matterの画像を省略しました。",
     frontmatterImageUnusableUrl: (key: string) =>
-      `frontmatterの${key}に指定できないURLです。省略しました。`,
+      `Front Matterの${key}は相対パスかhttpsのURLで指定してください。省略しました。`,
     frontmatterImageUnresolved: (key: string, value: string) =>
-      `frontmatterの${key}の画像を解決できません。省略しました: ${value}`,
+      `Front Matterの${key}の画像を解決できません。省略しました: ${value}`,
     frontmatterImageNotRaster: (key: string, value: string) =>
-      `frontmatterの${key}にはラスタ画像を指定してください。省略しました: ${value}`,
+      `Front Matterの${key}にはPNG・JPG・JPEG・GIF・WebP・AVIFの画像を指定してください。省略しました: ${value}`,
     frontmatterImageNotFound: (key: string, path: string) =>
-      `frontmatterの${key}の画像が見つかりません。省略しました: ${path}`,
-    frontmatterUnreadable: "frontmatterを読み取れませんでした。",
+      `Front Matterの${key}の画像が見つかりません。省略しました: ${path}`,
+    frontmatterUnreadable: "Front Matterを読み取れませんでした。",
   },
 
   frontmatter: {
-    missingClosingDelimiter: "frontmatterを閉じる区切り（---）がありません。",
-    mustBeString: (key: string) => `frontmatterの${key}は文字列で指定してください。`,
-    invalidYaml: "frontmatterのYAMLを解釈できませんでした。",
-    mustBeMapping: "frontmatterはキーと値の並びで書いてください。",
-    draftMustBeBoolean: "frontmatterのdraftはbooleanで指定してください。",
+    missingClosingDelimiter: "Front Matterを閉じる区切り（---）がありません。",
+    mustBeString: (key: string) => `Front Matterの${key}は文字列で指定してください。`,
+    invalidYaml: "Front MatterのYAMLを解釈できませんでした。",
+    mustBeMapping: "Front Matterはキーと値の並びで書いてください。",
+    draftMustBeBoolean: "Front Matterのdraftはtrueかfalseで指定してください。",
   },
 
   api: {
@@ -298,12 +337,12 @@ export const ja = {
   },
 
   confirmModal: {
-    cancel: "取り消し",
+    cancel: "キャンセル",
   },
 
   reportModal: {
     needAttention: (count: number) => `確認が必要な記事 ${count}件`,
-    messages: "Nekote Blogからのお知らせ",
+    messages: "サーバーからのエラー・警告",
     error: "エラー",
     warning: "警告",
     article: (title: string, path: string) => `${title}（${path}）`,

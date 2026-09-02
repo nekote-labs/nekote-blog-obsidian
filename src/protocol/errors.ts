@@ -11,6 +11,7 @@ export const API_ERROR_STATUS = {
   size_mismatch: 400,
   unsupported_asset_format: 400,
   blobs_incomplete: 400,
+  partial_push_not_allowed: 400,
   unauthorized: 401,
   blog_forbidden: 403,
   vault_in_use: 403,

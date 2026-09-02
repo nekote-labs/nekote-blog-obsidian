@@ -8,8 +8,12 @@ import {
   Platform,
   Plugin,
   TFile,
+  TFolder,
+  addIcon,
+  debounce,
   getLanguage,
   parseYaml,
+  removeIcon,
   requestUrl,
   type TAbstractFile,
 } from "obsidian";
@@ -35,10 +39,12 @@ import {
   type PluginSettings,
 } from "./storage/plugin-data";
 import { SecretStore } from "./storage/secrets";
-import { publish } from "./sync/publish";
+import { publish, type PublishScope } from "./sync/publish";
 import { FrontmatterImageModal, type FrontmatterImageKey } from "./ui/frontmatter-image-modal";
+import { NEKOTE_BLOG_ICON_ID, NEKOTE_BLOG_ICON_SVG } from "./ui/icons";
 import { PropertiesActions } from "./ui/properties-actions";
 import { createPublishUi } from "./ui/publish-ui";
+import { addPublishItems, type PublishMenuState } from "./ui/publish-menu";
 import { ObsidianVaultGateway } from "./vault/obsidian-gateway";
 import { isPublishTargetVaultPath } from "./vault/paths";
 
@@ -48,6 +54,18 @@ export default class NekoteBlogPlugin extends Plugin {
   connection!: ConnectionService;
   private client!: NekoteApiClient;
   private vault!: ObsidianVaultGateway;
+  private settingTab!: NekoteBlogSettingTab;
+  /**
+   * 設定画面のフォルダ一覧を作り直す。定義は`update()`のときだけ組み立てられ、
+   * 設定画面を開き直しても作り直されない。フォルダの削除は子の分もまとめて来るので間引く
+   */
+  private readonly requestSettingTabUpdate = debounce(
+    () => {
+      this.settingTab.update();
+    },
+    300,
+    true,
+  );
   /** 反映の実行中だけ立つ。二重実行を防ぎ、プラグイン無効化で中断する */
   private publishing: AbortController | null = null;
   /** ノートヘッダーへ足した反映ボタン。`addAction`に削除APIが無いので自分で持つ */
@@ -80,7 +98,8 @@ export default class NekoteBlogPlugin extends Plugin {
         this.updateSettings({ connection: hint }),
     });
 
-    this.addSettingTab(new NekoteBlogSettingTab(this.app, this));
+    this.settingTab = new NekoteBlogSettingTab(this.app, this);
+    this.addSettingTab(this.settingTab);
 
     const t = getTranslations();
     this.addCommand({
@@ -94,8 +113,16 @@ export default class NekoteBlogPlugin extends Plugin {
       id: "publish",
       name: t.commands.publish,
       callback: () => {
-        void this.publish();
+        void this.publish({ kind: "all" });
       },
+    });
+    this.addCommand({
+      id: "publish-note",
+      name: t.commands.publishNote,
+      checkCallback: (checking) =>
+        this.runWithPublishTarget(checking, (file) => {
+          void this.publish({ kind: "note", vaultPath: file.path });
+        }),
     });
     this.addCommand({
       id: "insert-frontmatter",
@@ -122,7 +149,8 @@ export default class NekoteBlogPlugin extends Plugin {
         }),
     });
 
-    this.addRibbonIcon("cat", "Nekote Blog", (evt) => {
+    addIcon(NEKOTE_BLOG_ICON_ID, NEKOTE_BLOG_ICON_SVG);
+    this.addRibbonIcon(NEKOTE_BLOG_ICON_ID, "Nekote Blog", (evt) => {
       this.showRibbonMenu(evt);
     });
     this.registerEvent(
@@ -144,6 +172,7 @@ export default class NekoteBlogPlugin extends Plugin {
       this.app.vault.on("rename", (file, oldPath) => {
         this.syncNoteActions();
         void this.insertFrontmatterForMovedNote(file, oldPath);
+        this.refreshFolderOptions(file);
       }),
     );
 
@@ -152,14 +181,25 @@ export default class NekoteBlogPlugin extends Plugin {
       this.registerEvent(
         this.app.vault.on("create", (file) => {
           void this.insertFrontmatterForNewNote(file);
+          this.refreshFolderOptions(file);
         }),
       );
+      this.registerEvent(
+        this.app.vault.on("delete", (file) => {
+          this.refreshFolderOptions(file);
+        }),
+      );
+      // `addSettingTab()`が定義を組み立てた時点ではvaultの索引が揃っておらず、
+      // フォルダ一覧が空のまま固定される。索引が揃ってから作り直す
+      this.settingTab.update();
       this.syncNoteActions();
       this.registerTitlePropertyType();
     });
   }
 
   onunload(): void {
+    removeIcon(NEKOTE_BLOG_ICON_ID);
+    this.requestSettingTabUpdate.cancel();
     this.publishing?.abort();
     for (const action of this.noteActions.values()) action.remove();
     this.noteActions.clear();
@@ -168,9 +208,12 @@ export default class NekoteBlogPlugin extends Plugin {
 
   /**
    * vaultを走査してPushする。**同時に1つだけ**（走査中に別の走査が始まると、
-   * 同じPush世代へ違うmanifestを送ることになる）
+   * 同じPush世代へ違うmanifestを送ることになる）。全量・部分でこのガードは共通。
+   *
+   * `scope`は**必須**。省略時を全量にすると、部分反映の導線での渡し忘れが
+   * 型エラーではなく全量反映（他の記事の削除を含む）になる
    */
-  async publish(): Promise<void> {
+  async publish(scope: PublishScope): Promise<void> {
     const t = getTranslations();
     if (this.publishing !== null) {
       new Notice(t.notices.alreadyPublishing);
@@ -186,19 +229,22 @@ export default class NekoteBlogPlugin extends Plugin {
     const ui = createPublishUi(this.app);
     const sleep = createSleep();
     try {
-      await publish({
-        client: this.client,
-        secrets: this.secrets,
-        vault: this.vault,
-        parseYaml,
-        ui,
-        settings: () => this.settings,
-        updateSettings: (patch) => this.updateSettings(patch),
-        sleep: (milliseconds) => sleep(milliseconds, controller.signal),
-        now: () => Date.now(),
-        newVaultId: () => randomBase64Url(16),
-        signal: controller.signal,
-      });
+      await publish(
+        {
+          client: this.client,
+          secrets: this.secrets,
+          vault: this.vault,
+          parseYaml,
+          ui,
+          settings: () => this.settings,
+          updateSettings: (patch) => this.updateSettings(patch),
+          sleep: (milliseconds) => sleep(milliseconds, controller.signal),
+          now: () => Date.now(),
+          newVaultId: () => randomBase64Url(16),
+          signal: controller.signal,
+        },
+        scope,
+      );
     } finally {
       ui.dispose();
       this.publishing = null;
@@ -298,17 +344,24 @@ export default class NekoteBlogPlugin extends Plugin {
     return root === null || root === "" ? "assets" : `${root}/assets`;
   }
 
+  /** 反映の入口メニューが見る状態。`publish()`が弾く条件と同じ */
+  private publishMenuState(): PublishMenuState {
+    return { connected: this.connection.isConnected(), contentRoot: this.settings.contentRoot };
+  }
+
   private showRibbonMenu(evt: MouseEvent): void {
     const t = getTranslations();
     const menu = new Menu();
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.publishToNekoteBlog)
-        .setIcon("upload")
-        .onClick(() => {
-          void this.publish();
-        }),
-    );
+    addPublishItems(menu, {
+      state: this.publishMenuState(),
+      labels: t.publishMenu,
+      all: {
+        title: t.commands.publishToNekoteBlog,
+        onClick: () => {
+          void this.publish({ kind: "all" });
+        },
+      },
+    });
     menu.addItem((item) =>
       item
         .setTitle(t.commands.openSettings)
@@ -324,14 +377,25 @@ export default class NekoteBlogPlugin extends Plugin {
     if (!(file instanceof TFile)) return;
     if (!isPublishTargetVaultPath(file.path, this.settings.contentRoot)) return;
     const t = getTranslations();
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.publishToNekoteBlog)
-        .setIcon("upload")
-        .onClick(() => {
-          void this.publish();
-        }),
-    );
+    addPublishItems(menu, {
+      state: this.publishMenuState(),
+      labels: {
+        notConnected: t.publishMenu.fileMenuNotConnected,
+        contentRootNotSelected: t.publishMenu.contentRootNotSelected,
+      },
+      note: {
+        title: t.commands.fileMenuPublishNote,
+        onClick: () => {
+          void this.publish({ kind: "note", vaultPath: file.path });
+        },
+      },
+      all: {
+        title: t.commands.publishToNekoteBlog,
+        onClick: () => {
+          void this.publish({ kind: "all" });
+        },
+      },
+    });
     menu.addItem((item) =>
       item
         .setTitle(t.commands.fileMenuPickThumbnail)
@@ -364,7 +428,7 @@ export default class NekoteBlogPlugin extends Plugin {
       let action = this.noteActions.get(view);
       if (action === undefined) {
         // 1クリックで反映を始めない。このノートに効く操作を集めたメニューを開く
-        action = view.addAction("cat", "Nekote Blog", (evt) => {
+        action = view.addAction(NEKOTE_BLOG_ICON_ID, "Nekote Blog", (evt) => {
           this.showNoteMenu(evt, view);
         });
         this.noteActions.set(view, action);
@@ -388,14 +452,22 @@ export default class NekoteBlogPlugin extends Plugin {
     if (file === null) return;
     const t = getTranslations();
     const menu = new Menu();
-    menu.addItem((item) =>
-      item
-        .setTitle(t.commands.publishToNekoteBlog)
-        .setIcon("upload")
-        .onClick(() => {
-          void this.publish();
-        }),
-    );
+    addPublishItems(menu, {
+      state: this.publishMenuState(),
+      labels: t.publishMenu,
+      note: {
+        title: t.commands.publishNote,
+        onClick: () => {
+          void this.publish({ kind: "note", vaultPath: file.path });
+        },
+      },
+      all: {
+        title: t.commands.publishToNekoteBlog,
+        onClick: () => {
+          void this.publish({ kind: "all" });
+        },
+      },
+    });
     menu.addItem((item) =>
       item
         .setTitle(t.commands.pickThumbnail)
@@ -476,6 +548,12 @@ export default class NekoteBlogPlugin extends Plugin {
   /** vault内のフォルダ一覧（コンテンツルートの選択肢） */
   folderPaths(): string[] {
     return this.vault.listFolderPaths();
+  }
+
+  /** フォルダが増減・改名したら設定画面のフォルダ一覧を作り直す */
+  private refreshFolderOptions(file: TAbstractFile): void {
+    if (!(file instanceof TFolder)) return;
+    this.requestSettingTabUpdate();
   }
 
   /** 承認ページを既定のブラウザで開く。Electronのshellは使わない（モバイル非対応） */
