@@ -1,90 +1,148 @@
-# Nekote Blog for Obsidian
+# Nekote Blog
 
-[Nekote Blog](https://nekote.blog) の公式Obsidianプラグイン。vault内のMarkdownと、
-そこから参照されるアセットをNekote Blogへ送信して公開する。
+Publish notes and their referenced assets from your vault to a [Nekote Blog](https://nekote.blog)
+site. Maintained by the Nekote Blog team.
 
-**現在は開発中で、まだ配布していない。** Community PluginsにもBRATにも登録していない。
+Pick one folder in your vault as the content root, write as usual, and run a single command to
+publish. Obsidian-flavored syntax is converted to standard Markdown on the way out. Nothing is ever
+written back into your vault by the publish step.
 
-## 状態
+## Requirements
 
-| できること | 状態 |
-| --- | --- |
-| ダッシュボード承認によるブログとの接続（端末認可） | 実装済み |
-| 接続状態の確認・この端末の接続解除 | 実装済み |
-| コンテンツルートの選択、vault走査、Obsidian記法の正規化 | 実装済み |
-| 「Nekote Blogへ反映」コマンド | 実装済み |
-| 保存時の自動同期 | 予定なし（初版は手動コマンドだけ） |
+- Obsidian 1.11.4 or later (the plugin stores its device token in `App.secretStorage`).
+- A Nekote Blog account and a blog. See [Disclosures](#disclosures) below.
+- Desktop (macOS, Windows, Linux) and mobile (iOS, Android). The plugin uses no Node.js or Electron
+  API.
 
-## 使い方
+## Usage
 
-1. 設定画面でブログと接続する（ブラウザで承認画面が開く）
-2. 設定画面で**コンテンツルート**にするフォルダを1つ選ぶ
-3. コマンドパレットから「Nekote Blogへ反映」を実行する
+1. Open the plugin settings and connect to your blog. Your default browser opens an approval page on
+   the Nekote Blog dashboard; approve the device there.
+2. In settings, choose one folder as the **content root**.
+3. Run **Nekote Blog: Publish** from the command palette, or use the ribbon icon.
 
-コンテンツルート直下の `posts/` が記事、`pages/` が固定ページになる。フォルダの階層は
-整理用で、公開URLには影響しない。公開・下書きの切り替えはfrontmatterの `draft` で行う。
+Inside the content root, `posts/` holds blog posts and `pages/` holds standalone pages. Subfolders are for
+your own organization and do not affect public URLs. Use the `draft` property in frontmatter to
+switch between published and draft.
 
-送るのは次だけで、vaultの中身をまるごと送ることはない。
+Before anything is uploaded, the plugin shows how many notes are published, drafted, or in error,
+and how much data will be sent. It asks for an extra confirmation on the first publish, when the
+content root changes, when many files would be deleted, and when another device has published since
+your last run.
 
-- `posts/` `pages/` 配下のMarkdown（Obsidian記法を標準Markdownへ直したもの）
-- そのMarkdownの本文とfrontmatterの `thumbnail` / `cover` が実際に参照しているアセット
+## Disclosures
 
-Nekoteからvaultへの書き戻しは行わない。反映の前に、公開・下書き・エラーの件数と
-送信するファイルの量を確認できる。初回・コンテンツルートの変更・大量の削除・
-他の端末との競合では、送信前に追加の確認が入る。
+### An account is required
 
-## 前提
+The plugin does nothing until it is connected to a blog, which requires a Nekote Blog account. See
+[nekote.blog/pricing](https://nekote.blog/pricing) for current plans.
 
-- Obsidian 1.11.4 以降（`App.secretStorage` が必要）
-- デスクトップ（macOS・Windows・Linux）とモバイル（iOS・Android）の両方で動く。
-  Node.js・Electron APIは使わない
-- Nekote Blogのアカウントとブログが必要。接続の承認はブラウザで開くダッシュボードで行う
+### Network use
 
-## 開発
+The plugin talks to one remote service: the Nekote Blog sync API at `api.nekote.blog`. There is no
+setting for an arbitrary URL, so your device token cannot be pointed somewhere else.
+
+All network activity is started by you. There is no request on startup, no background timer, and no
+automatic sync on save. Requests happen only when you connect to a blog, refresh the connection
+status, or run **Nekote Blog: Publish**. Once a publish is running, the plugin polls the API until
+that publish finishes.
+
+Connecting opens `dash.nekote.blog` in your browser so you can approve the device.
+
+### What is sent
+
+- Markdown under `posts/` and `pages/` inside your content root, with Obsidian-flavored syntax
+  (wikilinks, embeds, callouts) converted to standard Markdown. Frontmatter is sent as written.
+- Assets actually referenced by that Markdown, or by its `thumbnail` / `cover` properties.
+- For each of those files: its path relative to the content root (assets: relative to the vault
+  root), a SHA-256 hash, its size, and which assets and published notes it links to.
+- A random vault identifier generated on first publish, the content root path, and the revision of
+  your last publish, so the server can compute the difference.
+
+### What is not sent
+
+- Anything outside `posts/` and `pages/` in your content root. The rest of the vault is never read
+  for publishing.
+- Your vault name, and absolute paths on your machine.
+- The body of notes that are not publish targets. A wikilink to one keeps its display text only.
+- `.obsidian/` and other hidden configuration.
+
+### Telemetry
+
+The plugin contains no analytics, tracking, or crash-reporting code.
+
+On the server side, operational logs are limited to a timestamp, device and blog identifiers,
+counts, byte totals, status, and error codes. They do not contain note bodies, tokens, or local
+paths. Long-lived secrets are stored only as hashes. See the
+[privacy policy](https://nekote.blog/privacy) for how the data is handled.
+
+### What is stored on your device
+
+- The device token, and short-lived values used during approval, go into Obsidian's
+  `App.secretStorage`. They stay on this device and in this vault, and are not synced.
+- Non-secret settings go into the plugin's `data.json`: the connected blog and device names, the
+  random vault identifier, the content root, and the revision of your last publish. Tokens are never
+  written there.
+
+### Removing your data
+
+- **Disconnect this device** in the plugin settings revokes this device's token.
+- Deleting a note from your content root and publishing again removes it from your blog.
+- Deleting a blog or a Nekote Blog account happens on the Nekote Blog side. See the
+  [privacy policy](https://nekote.blog/privacy) for how that data is handled.
+
+### Writes to your vault
+
+Publishing never modifies your vault. The plugin writes to it only when you ask it to:
+
+- Inserting a frontmatter template into a new or moved note in a publish target folder (this can be
+  turned off in settings, and is also available as a command).
+- Writing a path into `thumbnail` or `cover` when you pick an image.
+- Copying an image into your import folder when you choose to import one from your device.
+
+## Development
 
 ```sh
 pnpm install
-pnpm run dev        # esbuildのwatch。main.jsを出力する
-pnpm run lint       # eslint + prettier
+pnpm run dev            # esbuild watch, emits main.js
+pnpm run lint           # eslint + prettier
 pnpm run typecheck
 pnpm run test
-pnpm run build      # 本番ビルド（sourcemapなし）。OBSIDIAN_PLUGIN_DIR があればvaultへ複製する
-pnpm run check:bundle   # ビルド成果物にNode/Electron依存が無いことを検査
+pnpm run build          # production build, no sourcemap
+pnpm run check:bundle   # asserts the bundle has no Node.js or Electron dependency
 ```
 
-vaultで動かすには、vaultの `.obsidian/plugins/nekote-blog/` へ `main.js`・`manifest.json`・
-`styles.css` を置く（またはリポジトリごとリンクする）。
+To run it in a vault, place `main.js`, `manifest.json`, and `styles.css` in
+`.obsidian/plugins/nekote-blog/`.
 
-毎回コピーせずに済ませるには、リポジトリ直下の `.env`（gitignore対象）へ複製先を書く。
-`pnpm run build` がビルドの後に3ファイルをそこへ複製する。未設定なら何もしないので、
-CIとReleaseは影響を受けない。
+To avoid copying them by hand, put the destination in a `.env` file at the repository root
+(gitignored). `pnpm run build` copies the three files there after building. With nothing set it
+copies nothing, so CI and releases are unaffected.
 
 ```sh
 OBSIDIAN_PLUGIN_DIR=/path/to/vault/.obsidian/plugins/nekote-blog
 ```
 
-複製後はObsidianを再読み込みする（`Cmd+R`）。iOSやAndroidの実機で試すときは、
-vaultの同期経由でこのフォルダを届ける。
+Reload Obsidian afterwards, either with **Reload app without saving** from the command palette or by
+toggling the plugin off and on in Community plugins. To try it on a phone or tablet, let your vault
+sync deliver that folder.
 
-### リリース
+Assumptions that can only be confirmed on real devices are tracked in
+[`docs/on-device-checks.md`](./docs/on-device-checks.md).
 
-`manifest.json` と `versions.json` のversionを上げ（`pnpm version <newversion>` が両方を
-更新する）、`x.y.z` 形式のタグをpushすると、GitHub Actionsが `main.js`・`manifest.json`・
-`styles.css` を添えたReleaseを作る。
+### Releasing
 
-## API契約
+Bump the version in `manifest.json` and `versions.json` (`pnpm version <newversion>` updates both),
+then push a tag in `x.y.z` form. GitHub Actions builds and creates a release with `main.js`,
+`manifest.json`, and `styles.css` attached.
 
-サーバーとのAPI契約の正本は非公開リポジトリ `nekote-labs/nekote-blog` にあり、この
-リポジトリは対応するmajorのschemaとfixtureを [`protocol/v1/`](./protocol/v1/) へコピー
-して持つ。runtimeで非公開リポジトリやnpm packageへ依存しない。コピーのずれは
-`tests/protocol-contract.test.ts` の内容hash照合で落とす。
+### API contract
 
-## 補足
+The API contract with the server lives in the private `nekote-labs/nekote-blog` repository. This
+repository keeps a copy of the schema and fixtures for the matching major version under
+[`protocol/v1/`](./protocol/v1/), and depends on no private repository or npm package at runtime.
+`tests/protocol-contract.test.ts` compares content hashes so the copy cannot drift unnoticed.
 
-- 実機で確定していない前提は [`docs/on-device-checks.md`](./docs/on-device-checks.md)
-- 送信するデータ・サーバー側のログ・データの削除方法といった利用者向けの説明は、
-  配布を始めるときにここへ追加する
-
-## ライセンス
+## License
 
 MIT
