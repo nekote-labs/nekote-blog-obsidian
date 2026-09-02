@@ -55,20 +55,23 @@ export const ja = {
       blog: (title: string, subdomain: string) => `${title}（${subdomain}.nekote.blog）`,
       thisDevice: "この端末",
       thisDeviceUnknown: "不明",
-      status: "接続状態",
-      refreshButton: "最新の状態を確認",
+      checkStatus: "接続状態を確認",
+      checkStatusDesc:
+        "サーバーに問い合わせて、この端末の接続が有効か、どの記事ソースが接続中かを表示します。",
+      checkStatusButton: "確認",
       disconnect: "接続を解除",
       disconnectDesc:
         "この端末からは反映できなくなります。公開中の記事はそのまま残ります。再び反映するには接続し直します。",
       disconnectButton: "解除",
     },
     status: {
-      notChecked: "未確認",
-      noSource: "記事ソース未設定（初回の反映で接続されます）",
+      noSource: "Nekote Blog: 接続は有効です。記事ソースは未設定で、初回の反映で接続されます。",
       otherSource: (type: string) =>
-        `別のソース（${type}）が接続中です。初回の反映で切り替わります。`,
+        `Nekote Blog: 接続は有効です。別のソース（${type}）が接続中で、初回の反映で切り替わります。`,
       obsidianSource: (revision: number, contentRoot: string) =>
-        `Obsidianソース接続中 / revision ${revision} / コンテンツルート${contentRoot}`,
+        `Nekote Blog: 接続は有効です。Obsidianソース接続中（revision ${revision} / コンテンツルート${contentRoot}）。`,
+      unauthorized:
+        "Nekote Blog: この端末の接続は無効になっています。接続を解除してから、もう一度接続してください。",
     },
     content: {
       heading: "記事",
@@ -106,7 +109,6 @@ export const ja = {
       connected: (blogTitle: string) => `Nekote Blog: ${blogTitle} と接続しました。`,
       denied: "Nekote Blog: 承認が拒否されました。",
       expired: "Nekote Blog: 承認の有効期限が切れました。もう一度お試しください。",
-      connectionRefreshed: "Nekote Blog: 接続状態を更新しました。",
       disconnected: "Nekote Blog: 接続を解除しました。",
       disconnectedButNotRevoked: (reason: string) =>
         `Nekote Blog: この端末の接続情報は削除しましたが、サーバー側の解除に失敗しました（${reason}）。ダッシュボードの端末一覧から解除してください。`,

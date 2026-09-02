@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/** `Notice`に渡された文言。`vi.mock`は巻き上げられるので`vi.hoisted`で先に作る */
+const notices = vi.hoisted(() => [] as string[]);
 
 vi.mock("obsidian", () => {
   // 宣言的設定APIの基底。定義の組み立てだけを検証するので、描画も保存も要らない
@@ -14,7 +17,11 @@ vi.mock("obsidian", () => {
     setControlValue(): void {}
   }
 
-  class Notice {}
+  class Notice {
+    constructor(message: string) {
+      notices.push(message);
+    }
+  }
 
   return { PluginSettingTab, Notice };
 });
@@ -24,14 +31,34 @@ import type {
   DeviceAuthorizationPrompt,
   DeviceAuthorizationResult,
 } from "../src/auth/device-authorization";
+import { NekoteApiError } from "../src/protocol/errors";
+import type { ConnectionResponse } from "../src/protocol/types";
 import type { PluginSettings } from "../src/storage/plugin-data";
 import { NekoteBlogSettingTab } from "../src/settings/settings-tab";
+
+beforeEach(() => {
+  notices.length = 0;
+});
 
 const prompt: DeviceAuthorizationPrompt = {
   userCode: "K7QX-3M9T",
   verificationUri: "https://dash.example.test/obsidian/authorize",
   verificationUriComplete: "https://dash.example.test/obsidian/authorize?code=K7QX-3M9T",
   expiresAt: 600_000,
+};
+
+const connectionResponse: ConnectionResponse = {
+  protocolVersion: 1,
+  blog: { id: "blog_1", title: "obsidian", subdomain: "staging-obsidian" },
+  device: { id: "dev_1", name: "Obsidian (Desktop)" },
+  source: {
+    kind: "obsidian",
+    contentSourceId: "src_1",
+    vaultId: "vault_1",
+    contentRoot: "blog",
+    appliedRevision: 3,
+    manifestHash: null,
+  },
 };
 
 type ConnectInput = {
@@ -46,6 +73,7 @@ type TabOptions = {
   settings?: Partial<PluginSettings>;
   connected?: boolean;
   folderPaths?: string[];
+  fetchConnection?: () => Promise<ConnectionResponse>;
 };
 
 function createTab(
@@ -69,6 +97,7 @@ function createTab(
     connection: {
       isConnected: () => options.connected === true,
       connect,
+      fetchConnection: options.fetchConnection ?? vi.fn(async () => connectionResponse),
     },
     settings,
     folderPaths: () => options.folderPaths ?? [],
@@ -242,9 +271,50 @@ describe("NekoteBlogSettingTabのセクション構成", () => {
     expect(visibleNames(group(connected, "Connection"))).toEqual([
       "Connected blog",
       "This device",
-      "Status",
+      "Check connection status",
       "Disconnect",
     ]);
+  });
+});
+
+describe("NekoteBlogSettingTabの接続状態の確認", () => {
+  function checkButton(tab: NekoteBlogSettingTab): RenderedButton {
+    const [button] = render(item(group(tab, "Connection"), "Check connection status")).buttons;
+    if (button === undefined) throw new Error("確認ボタンが無い");
+    return button;
+  }
+
+  it("サーバーの接続状態をNoticeで出す", async () => {
+    const fetchConnection = vi.fn(async () => connectionResponse);
+    const tab = createTab(vi.fn<ConnectFn>(), { connected: true, fetchConnection });
+
+    checkButton(tab).click();
+    await vi.waitFor(() => expect(notices).toHaveLength(1));
+
+    expect(fetchConnection).toHaveBeenCalledTimes(1);
+    expect(notices[0]).toBe(
+      'Nekote Blog: Connected. Obsidian source is active (revision 3, content root "blog").',
+    );
+  });
+
+  it("トークンが失効していたら接続し直しを案内する", async () => {
+    const tab = createTab(vi.fn<ConnectFn>(), {
+      connected: true,
+      fetchConnection: vi.fn(async () => {
+        throw new NekoteApiError({
+          code: "unauthorized",
+          status: 401,
+          message: "接続が無効です。",
+        });
+      }),
+    });
+
+    checkButton(tab).click();
+    await vi.waitFor(() => expect(notices).toHaveLength(1));
+
+    expect(notices[0]).toBe(
+      "Nekote Blog: This device is no longer connected. Disconnect, then connect again.",
+    );
   });
 });
 

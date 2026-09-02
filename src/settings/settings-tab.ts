@@ -39,7 +39,6 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
   /** 認可の進行中だけ立つ。UIの再描画で作り直す */
   private authorizationController: AbortController | null = null;
   private prompt: DeviceAuthorizationPrompt | null = null;
-  private connection: ConnectionResponse | null = null;
   private deviceName: string;
 
   constructor(app: App, plugin: NekoteBlogPlugin) {
@@ -229,7 +228,7 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
     };
   }
 
-  /** 接続中に出すグループ。接続先の確認・状態の再取得・接続解除を並べる */
+  /** 接続中に出すグループ。接続先の確認・接続状態の確認・接続解除を並べる */
   private connectedGroup(): SettingDefinitionGroup {
     const t = getTranslations();
     const hint = this.plugin.settings.connection;
@@ -250,12 +249,12 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
           desc: hint === null ? t.settings.connection.thisDeviceUnknown : hint.device.name,
         },
         {
-          name: t.settings.connection.status,
-          desc: describeConnection(this.connection),
+          name: t.settings.connection.checkStatus,
+          desc: t.settings.connection.checkStatusDesc,
           render: (setting) => {
             setting.addButton((button) =>
-              button.setButtonText(t.settings.connection.refreshButton).onClick(() => {
-                void this.refreshConnection();
+              button.setButtonText(t.settings.connection.checkStatusButton).onClick(() => {
+                void this.checkConnection();
               }),
             );
           },
@@ -477,20 +476,27 @@ export class NekoteBlogSettingTab extends PluginSettingTab {
     this.prompt = null;
   }
 
-  private async refreshConnection(): Promise<void> {
+  /**
+   * サーバーへ問い合わせて接続状態をNoticeで出す。結果は画面に持たない
+   * （開き直しや再起動のたびに古くなり、「未確認」という状態を抱えることになるため）
+   */
+  private async checkConnection(): Promise<void> {
     try {
-      this.connection = await this.plugin.connection.fetchConnection();
-      new Notice(getTranslations().settings.notices.connectionRefreshed);
+      const connection = await this.plugin.connection.fetchConnection();
+      new Notice(describeConnection(connection), 10000);
+      // ブログ名・端末名のhintが更新されるので表示へ反映する
+      this.update();
     } catch (error) {
-      this.connection = null;
+      if (error instanceof NekoteApiError && error.isUnauthorized) {
+        new Notice(getTranslations().settings.status.unauthorized, 10000);
+        return;
+      }
       notifyError(error);
     }
-    this.update();
   }
 
   private async disconnect(): Promise<void> {
     const result = await this.plugin.connection.disconnect();
-    this.connection = null;
     const t = getTranslations();
     if (result.revokedOnServer) {
       new Notice(t.settings.notices.disconnected);
@@ -533,9 +539,9 @@ function formatDateTime(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }
 
-function describeConnection(connection: ConnectionResponse | null): string {
+/** 「接続状態を確認」の結果Notice */
+function describeConnection(connection: ConnectionResponse): string {
   const t = getTranslations().settings.status;
-  if (connection === null) return t.notChecked;
   switch (connection.source.kind) {
     case "none":
       return t.noSource;

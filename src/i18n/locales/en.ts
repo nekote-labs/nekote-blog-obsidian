@@ -67,21 +67,25 @@ export const en = {
       blog: (title: string, subdomain: string) => `${title} (${subdomain}.nekote.blog)`,
       thisDevice: "This device",
       thisDeviceUnknown: "Unknown",
-      status: "Status",
-      refreshButton: "Refresh",
+      checkStatus: "Check connection status",
+      checkStatusDesc:
+        "Asks the server whether this device is still connected and which content source is active.",
+      checkStatusButton: "Check",
       disconnect: "Disconnect",
       disconnectDesc:
         "Removes this device's access to your blog. Published posts stay online. To publish again, connect once more.",
       disconnectButton: "Disconnect",
     },
-    /** 接続状態の説明文（`describeConnection()`） */
+    /** 「接続状態を確認」の結果Notice（`describeConnection()`） */
     status: {
-      notChecked: "Not checked yet",
-      noSource: "No content source set (your first publish will connect it)",
+      noSource:
+        "Nekote Blog: Connected. No content source is set yet; your first publish will connect it.",
       otherSource: (type: string) =>
-        `Another source (${type}) is connected. Your first publish will switch it over.`,
+        `Nekote Blog: Connected. Another source (${type}) is active; your first publish will switch it over.`,
       obsidianSource: (revision: number, contentRoot: string) =>
-        `Obsidian source connected / revision ${revision} / content root ${contentRoot}`,
+        `Nekote Blog: Connected. Obsidian source is active (revision ${revision}, content root ${contentRoot}).`,
+      unauthorized:
+        "Nekote Blog: This device is no longer connected. Disconnect, then connect again.",
     },
     content: {
       heading: "Content",
@@ -119,7 +123,6 @@ export const en = {
       connected: (blogTitle: string) => `Nekote Blog: Connected to ${blogTitle}.`,
       denied: "Nekote Blog: The approval was denied.",
       expired: "Nekote Blog: The approval expired. Please try again.",
-      connectionRefreshed: "Nekote Blog: Connection status updated.",
       disconnected: "Nekote Blog: Disconnected.",
       disconnectedButNotRevoked: (reason: string) =>
         `Nekote Blog: This device was disconnected here, but removing it on the server failed (${reason}). Remove it from the device list on your dashboard.`,
