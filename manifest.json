@@ -1,7 +1,7 @@
 {
   "id": "nekote-blog",
   "name": "Nekote Blog",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "minAppVersion": "1.11.4",
   "description": "Publish notes and their referenced assets from your vault to a Nekote Blog site.",
   "author": "nekote-labs",

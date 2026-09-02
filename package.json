@@ -1,6 +1,6 @@
 {
   "name": "nekote-blog-obsidian",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Obsidian plugin that publishes vault notes to Nekote Blog",
   "private": true,
   "type": "module",
