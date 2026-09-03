@@ -365,7 +365,8 @@ describe("publish: vault IDの突き合わせ", () => {
     await publish(harness.deps, { kind: "all" });
 
     expect(harness.settings.vaultId).toBe(CREATED_VAULT_ID);
-    expect(titles(harness)).toEqual(["Publish to Nekote Blog"]);
+    // 初回接続はサーバーのpreflight確認1回だけ（送信前のローカル確認は出さない）
+    expect(titles(harness)).toEqual(["Review what will be published"]);
     expect(harness.begins[0]?.vaultId).toBe(CREATED_VAULT_ID);
     // 初回接続なのでbaseRevisionは0から始まる
     expect(harness.begins[0]?.baseRevision).toBe(0);
@@ -399,7 +400,10 @@ describe("publish: vault IDの突き合わせ", () => {
 
     await publish(harness.deps, { kind: "all" });
 
-    expect(titles(harness)).toEqual(["This is not the connected vault", "Publish to Nekote Blog"]);
+    expect(titles(harness)).toEqual([
+      "This is not the connected vault",
+      "Review what will be published",
+    ]);
     expect(harness.confirms[0]?.danger).toBe(true);
     // 承諾してもローカルのvault IDのまま送る（サーバー側が初回接続として作り直す）
     expect(harness.settings.vaultId).toBe("vault-local-0001");
@@ -492,6 +496,95 @@ describe("publish: 反映前の確認", () => {
     const preflight = harness.confirms[1];
     expect(preflight?.title).toBe("Review what will be published");
     expect(preflight?.paragraphs[0]).toBe("Publishing to: ねこのブログ (neko.nekote.blog)");
+  });
+
+  it("接続済みなら送信前の確認を出し、前回からの削除の注記を添える", async () => {
+    const harness = createHarness();
+
+    await publish(harness.deps, { kind: "all" });
+
+    const paragraphs = harness.confirms[0]?.paragraphs ?? [];
+    expect(harness.confirms[0]?.title).toBe("Publish to Nekote Blog");
+    expect(paragraphs[1]).toMatch(/^Publishing \d+ notes/);
+    expect(paragraphs.at(-1)).toBe(
+      "Unchanged files are not sent. Notes removed since the previous publish are also deleted from the blog.",
+    );
+  });
+
+  // 初回接続と別ソースからの切替はサーバーのpreflightが必ず確認を返すので、
+  // 送信前のローカル確認を出すと同じ内容を2回聞くことになる
+  it("ソースが未接続なら送信前の確認を出さず、サーバーの初回確認1回だけにする", async () => {
+    const harness = createHarness({
+      source: { kind: "none" },
+      begin: [
+        pushBeginResponse({
+          confirmationRequired: true,
+          preflight: { initialConnect: true, confirmationReasons: ["initial_connect"] },
+        }),
+      ],
+    });
+
+    await publish(harness.deps, { kind: "all" });
+
+    expect(titles(harness)).toEqual(["Confirm your first publish"]);
+    expect(harness.confirms[0]?.paragraphs[1]).toBe("This is the first publish to this blog.");
+    // 削除0件の初回接続は壊すものが無いので破壊的操作にしない
+    expect(harness.confirms[0]?.danger).toBe(false);
+    expect(harness.reports[0]).toMatchObject({ outcome: "applied" });
+  });
+
+  it("別のソースが接続中なら送信前の確認を出さず、サーバーの切替確認1回だけにする", async () => {
+    const harness = createHarness({
+      source: { kind: "other", type: "notion" },
+      begin: [
+        pushBeginResponse({
+          confirmationRequired: true,
+          preflight: { initialConnect: true, confirmationReasons: ["source_switch"] },
+        }),
+      ],
+    });
+
+    await publish(harness.deps, { kind: "all" });
+
+    expect(titles(harness)).toEqual(["Confirm your first publish"]);
+    expect(harness.confirms[0]?.paragraphs[1]).toBe(
+      "Switching from another content source to Obsidian. The existing posts are rebuilt.",
+    );
+    // 既存記事を作り直すので削除0件でも破壊的操作にする
+    expect(harness.confirms[0]?.danger).toBe(true);
+  });
+
+  it("送信前の確認を省いた初回接続では、サーバーが確認を求めなくても1回は確認する", async () => {
+    const harness = createHarness({ source: { kind: "none" } });
+
+    await publish(harness.deps, { kind: "all" });
+
+    expect(titles(harness)).toEqual(["Review what will be published"]);
+  });
+
+  it("初回接続のサーバー確認を断ると何も送らない", async () => {
+    const harness = createHarness({ source: { kind: "none" }, answer: () => false });
+
+    await publish(harness.deps, { kind: "all" });
+
+    expect(titles(harness)).toEqual(["Review what will be published"]);
+    expect(harness.calls).toEqual(["getConnection", "beginPush"]);
+    expect(harness.reports).toEqual([]);
+  });
+
+  it("サーバーの確認は、削除があれば破壊的操作にする", async () => {
+    const harness = createHarness({
+      begin: [
+        pushBeginResponse({
+          confirmationRequired: true,
+          preflight: { deletedCount: 2, confirmationReasons: ["large_delete"] },
+        }),
+      ],
+    });
+
+    await publish(harness.deps, { kind: "all" });
+
+    expect(harness.confirms[1]?.danger).toBe(true);
   });
 });
 

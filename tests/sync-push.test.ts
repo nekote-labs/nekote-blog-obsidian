@@ -325,6 +325,18 @@ describe("runPush: 追加確認", () => {
     expect(outcome).toMatchObject({ status: "applied" });
     expect(harness.calls).not.toContain("confirm");
   });
+
+  it("requireConfirmationなら、サーバーが求めなくてもconfirmを呼び、断ればcancelledになる", async () => {
+    const harness = createHarness({
+      begin: [beginResponse({ confirmationRequired: false })],
+      confirm: () => false,
+    });
+
+    const outcome = await runPush(harness.deps, { ...pushInput(), requireConfirmation: true });
+
+    expect(outcome).toEqual({ status: "cancelled" });
+    expect(harness.calls).toEqual(["beginPush", `onPushStarted:${PUSH_ID}`, "confirm"]);
+  });
 });
 
 describe("runPush: 原本の送信", () => {

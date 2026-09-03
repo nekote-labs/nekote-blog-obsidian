@@ -75,6 +75,11 @@ export interface PushDeps {
 export interface PushInput {
   manifest: SyncManifest;
   manifestHash: string;
+  /**
+   * サーバーが追加確認を求めなくても、原本を送る前に必ず1回確認する。
+   * 送信前のローカル確認を省いた経路（初回接続・別ソースからの切替）が立てる
+   */
+  requireConfirmation?: boolean;
 }
 
 export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOutcome> {
@@ -84,7 +89,10 @@ export async function runPush(deps: PushDeps, input: PushInput): Promise<PushOut
   deps.onPushStarted(begin);
   if (deps.signal.aborted) return { status: "cancelled" };
 
-  if (begin.confirmationRequired && !(await deps.confirm(begin))) {
+  if (
+    (begin.confirmationRequired || input.requireConfirmation === true) &&
+    !(await deps.confirm(begin))
+  ) {
     return { status: "cancelled" };
   }
   if (!(await stageBlobs(deps, begin))) return { status: "cancelled" };

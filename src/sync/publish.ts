@@ -138,9 +138,19 @@ async function publishAll(
 
   if (!(await confirmServerRevision(deps, connection.source, scan))) return;
 
+  // サーバーにこのvaultの確定済みsourceが無い（初回接続・別ソースからの切替・
+  // 別vaultとして接続中）なら、beginのpreflightが必ず追加確認を返す。ここでも
+  // 確認すると同じ内容を2回聞くことになるので、件数の正確なサーバー側の1回に寄せる
+  const initialConnect =
+    connection.source.kind !== "obsidian" || connection.source.vaultId !== vaultId;
   // どの導線（設定画面・コマンド・リボン・ノート上のボタン）から来ても、
   // 送信の直前に必ず1回確認する。1クリックでPushまで進ませない
-  if (!(await deps.ui.confirm(publishConfirmRequest(contentRoot, scan, connection.blog)))) return;
+  if (
+    !initialConnect &&
+    !(await deps.ui.confirm(publishConfirmRequest(contentRoot, scan, connection.blog)))
+  ) {
+    return;
+  }
 
   const baseRevision =
     connection.source.kind === "obsidian" ? connection.source.appliedRevision : 0;
@@ -149,6 +159,8 @@ async function publishAll(
     baseRevision,
     blog: connection.blog,
     mode: "full",
+    // 送信前の確認を省いたぶん、サーバーが求めなくてもpreflightの確認を1回出す
+    requireConfirmation: initialConnect,
     confirmConflict: (applied) =>
       deps.ui.confirm(
         overwriteRequest(scan, applied, getTranslations().publish.overwrite.anotherPublishApplied),
@@ -473,6 +485,8 @@ async function push(
     mode: PushMode;
     /** 409（送信中に他端末が反映）で最新baseへ送り直してよいかを聞く */
     confirmConflict: (applied: AppliedManifestResponse) => Promise<boolean>;
+    /** サーバーが求めなくてもpreflightの確認を出す（`PushInput.requireConfirmation`） */
+    requireConfirmation?: boolean;
   },
 ): Promise<PushRun> {
   // beginは`runPush()`の中で（`blobs_incomplete`後の再beginも含めて）返る
@@ -491,6 +505,7 @@ async function push(
           entries: scan.entries,
         }),
         manifestHash: scan.manifestHash,
+        requireConfirmation: options.requireConfirmation,
       },
     );
 
@@ -597,7 +612,9 @@ function preflightRequest(
     ],
     sections,
     confirmLabel: t.confirmLabel,
-    danger: preflight.deletedCount > 0 || preflight.initialConnect,
+    // 赤（破壊的操作）は記事が消えるときだけ。削除0件の初回接続は壊すものが無い。
+    // 別ソースからの切替は既存記事を作り直すが削除件数に出ないので、理由で拾う
+    danger: preflight.deletedCount > 0 || preflight.confirmationReasons.includes("source_switch"),
   };
 }
 
