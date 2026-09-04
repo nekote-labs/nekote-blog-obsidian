@@ -12,6 +12,15 @@ export interface DisposablePublishUi extends PublishUi {
   dispose: () => void;
 }
 
+function progressMessage(message: string, detail?: string): string | DocumentFragment {
+  const headline = `Nekote Blog: ${message}`;
+  if (detail === undefined) return headline;
+
+  return createFragment((fragment) => {
+    fragment.append(headline, createEl("br"), detail);
+  });
+}
+
 export function createPublishUi(app: App): DisposablePublishUi {
   let progressNotice: Notice | null = null;
 
@@ -27,8 +36,7 @@ export function createPublishUi(app: App): DisposablePublishUi {
       return confirmWithModal(app, request);
     },
     progress: (message: string, detail?: string) => {
-      const text =
-        detail === undefined ? `Nekote Blog: ${message}` : `Nekote Blog: ${message} ${detail}`;
+      const text = progressMessage(message, detail);
       if (progressNotice === null) progressNotice = new Notice(text, 0);
       else progressNotice.setMessage(text);
     },
