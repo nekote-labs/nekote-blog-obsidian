@@ -7,6 +7,10 @@ on:
 
 permissions:
   contents: write
+  # Release成果物のattestation（Sigstore署名）に必要
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 jobs:
   release:
@@ -31,6 +35,15 @@ jobs:
       - run: pnpm run test
       - run: pnpm run build
       - run: pnpm run check:bundle
+
+      # ディレクトリ側でReleaseの成果物が本リポジトリのCIで作られたと検証できるようにする
+      - name: Attest release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
 
       # Obsidian Community Pluginsは main.js / manifest.json / styles.css を
       # Releaseのassetとして直接取得するため、3点を必ず添付する

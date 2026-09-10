@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import js from "@eslint/js";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import globals from "globals";
@@ -37,7 +39,10 @@ export default tseslint.config(
   {
     languageOptions: {
       globals: { ...globals.browser },
-      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: fileURLToPath(new URL(".", import.meta.url)),
+      },
     },
   },
   {
