@@ -145,10 +145,7 @@ async function publishAll(
     connection.source.kind !== "obsidian" || connection.source.vaultId !== vaultId;
   // どの導線（設定画面・コマンド・リボン・ノート上のボタン）から来ても、
   // 送信の直前に必ず1回確認する。1クリックでPushまで進ませない
-  if (
-    !initialConnect &&
-    !(await deps.ui.confirm(publishConfirmRequest(contentRoot, scan, connection.blog)))
-  ) {
+  if (!initialConnect && !(await deps.ui.confirm(publishConfirmRequest(scan, connection.blog)))) {
     return;
   }
 
@@ -213,24 +210,20 @@ async function publishNote(
   // 差分確認が出る状態を保つ）
   let revisionMatched = source.appliedRevision === lastPush.revision;
   if (!revisionMatched) {
-    const ok = await deps.ui.confirm(
-      anotherDeviceRequest(t.overwrite.publishedFromAnotherDevice, source.appliedRevision),
-    );
+    const ok = await deps.ui.confirm(anotherDeviceRequest(t.overwrite.publishedFromAnotherDevice));
     if (!ok) return;
   }
 
-  if (!(await deps.ui.confirm(publishNoteConfirmRequest(scan, article, connection.blog)))) return;
+  if (!(await deps.ui.confirm(publishNoteConfirmRequest(article, connection.blog)))) return;
 
   const outcome = await push(deps, scan, {
     vaultId: source.vaultId,
     baseRevision: source.appliedRevision,
     blog: connection.blog,
     mode: "partial",
-    confirmConflict: (applied) => {
+    confirmConflict: () => {
       revisionMatched = false;
-      return deps.ui.confirm(
-        anotherDeviceRequest(t.overwrite.anotherPublishApplied, applied.appliedRevision),
-      );
+      return deps.ui.confirm(anotherDeviceRequest(t.overwrite.anotherPublishApplied));
     },
   });
   await reportOutcome(deps, scan, outcome, {
@@ -301,48 +294,30 @@ function scanConfirmRequest(
       isNote
         ? t.noteAmount(quoteContentRoot(contentRoot), amount.count, formatBytes(amount.bytes))
         : t.assetAmount(quoteContentRoot(contentRoot), amount.count, formatBytes(amount.bytes)),
-      isNote ? t.noteWarning : t.assetWarning,
+      ...(isNote ? [t.noteWarning] : []),
     ],
     confirmLabel: t.confirmLabel,
   };
 }
 
-function publishConfirmRequest(
-  contentRoot: string,
-  scan: ScanResult,
-  blog: ConnectionBlog,
-): ConfirmRequest {
+function publishConfirmRequest(scan: ScanResult, blog: ConnectionBlog): ConfirmRequest {
   const t = getTranslations().publish.confirmPublish;
   const { summary } = scan;
   return {
     title: t.title,
-    paragraphs: [
-      describeBlog(blog),
-      t.summary(
-        summary.markdown.count,
-        summary.publishedCount,
-        summary.draftCount,
-        summary.asset.count,
-        quoteContentRoot(contentRoot),
-      ),
-      t.note,
-    ],
+    paragraphs: [describeBlog(blog), t.summary(summary.publishedCount, summary.draftCount), t.note],
     confirmLabel: t.confirmLabel,
   };
 }
 
-/** 「このノートだけ反映」の送信前確認。反映先・対象ノート・他の記事への影響を示す */
-function publishNoteConfirmRequest(
-  scan: ScanResult,
-  article: ScannedArticle,
-  blog: ConnectionBlog,
-): ConfirmRequest {
+/** 「このノートだけ反映」の送信前確認。反映先・対象ノート・操作の制約を示す */
+function publishNoteConfirmRequest(article: ScannedArticle, blog: ConnectionBlog): ConfirmRequest {
   const t = getTranslations().publish.partial.confirm;
   return {
     title: t.title,
     paragraphs: [
       describeBlog(blog),
-      t.summary(article.title, article.path, scan.summary.asset.count),
+      t.summary(article.title, article.path),
       ...(article.draft ? [t.draftNote] : []),
       t.note,
     ],
@@ -356,11 +331,11 @@ function publishNoteConfirmRequest(
  * **差分一覧を出さない**。`diffAgainstApplied()`は「載っていない記事＝削除」で数えるので、
  * 部分manifestに使うと他の全記事が削除扱いで並び、誤解を生む
  */
-function anotherDeviceRequest(title: string, appliedRevision: number): ConfirmRequest {
+function anotherDeviceRequest(title: string): ConfirmRequest {
   const t = getTranslations().publish;
   return {
     title,
-    paragraphs: [t.overwrite.revisionMismatch(appliedRevision), t.partial.anotherDevice.detail],
+    paragraphs: [t.partial.anotherDevice.detail],
     confirmLabel: t.partial.anotherDevice.confirmLabel,
   };
 }
@@ -387,13 +362,7 @@ async function resolveVaultId(deps: PublishDeps, source: ConnectionSource): Prom
   if (local === null) {
     const ok = await deps.ui.confirm({
       title: t.sameVault.title,
-      paragraphs: [t.sameVault.intro, t.sameVault.detail(source.appliedRevision)],
-      sections: [
-        {
-          title: t.sameVault.serverContentRoot,
-          items: [describeContentRoot(source.contentRoot)],
-        },
-      ],
+      paragraphs: [t.sameVault.serverContentRoot(quoteContentRoot(source.contentRoot))],
       confirmLabel: t.sameVault.confirmLabel,
     });
     if (!ok) return null;
@@ -403,7 +372,7 @@ async function resolveVaultId(deps: PublishDeps, source: ConnectionSource): Prom
 
   const ok = await deps.ui.confirm({
     title: t.differentVault.title,
-    paragraphs: [t.differentVault.intro, t.differentVault.warning],
+    paragraphs: [t.differentVault.intro],
     confirmLabel: t.differentVault.confirmLabel,
     danger: true,
   });
@@ -456,7 +425,7 @@ function overwriteRequest(
   const diff = diffAgainstApplied(scan.entries, applied.entries);
   return {
     title,
-    paragraphs: [t.revisionMismatch(applied.appliedRevision), t.warning],
+    paragraphs: [t.warning],
     sections: [
       { title: t.added(diff.added.length), items: diff.added },
       { title: t.updated(diff.updated.length), items: diff.updated },
@@ -532,12 +501,13 @@ function pushDeps(
   };
 }
 
-/** サーバーが返す`confirmationReasons`のコードを説明文にする */
-function describeConfirmationReason(reason: string): string {
+/**
+ * サーバーが返す`confirmationReasons`のコードを説明文にする。
+ * 初回接続は題名で分かるので文を出さない。知らないコードも出さない（説明できない文は読ませない）
+ */
+function describeConfirmationReason(reason: string): string | null {
   const t = getTranslations().publish.reasons;
   switch (reason) {
-    case "initial_connect":
-      return t.initialConnect;
     case "source_switch":
       return t.sourceSwitch;
     case "content_root_changed":
@@ -549,7 +519,7 @@ function describeConfirmationReason(reason: string): string {
     case "large_upload":
       return t.largeUpload;
     default:
-      return t.unknown;
+      return null;
   }
 }
 
@@ -576,14 +546,16 @@ function preflightRequest(
     title: preflight.initialConnect ? t.initialTitle : t.title,
     paragraphs: [
       ...(blog === null ? [] : [describeBlog(blog)]),
-      ...preflight.confirmationReasons.map((reason) => describeConfirmationReason(reason)),
+      ...preflight.confirmationReasons.flatMap((reason) => {
+        const text = describeConfirmationReason(reason);
+        return text === null ? [] : [text];
+      }),
       // 部分反映は削除が起きない（`deletedCount`は常に0）ので、削除の行を出さない
       begin.mode === "partial"
         ? partial.preflightCounts(
             preflight.addedCount,
             preflight.updatedCount,
             preflight.unchangedCount,
-            preflight.untouchedCount,
           )
         : t.counts(
             preflight.addedCount,
@@ -591,7 +563,9 @@ function preflightRequest(
             preflight.deletedCount,
             preflight.unchangedCount,
           ),
-      t.filesToSend(preflight.missingBlobCount, formatBytes(preflight.missingBlobBytes)),
+      ...(preflight.confirmationReasons.includes("large_upload")
+        ? [t.filesToSend(preflight.missingBlobCount, formatBytes(preflight.missingBlobBytes))]
+        : []),
     ],
     sections,
     confirmLabel: t.confirmLabel,
@@ -648,7 +622,7 @@ async function reportOutcome(
       deps.ui.report({
         outcome: "failed",
         headline: t.report.failed,
-        paragraphs: [t.report.failedDetail, ...describeCounts(outcome.result)],
+        paragraphs: [t.report.unchanged, ...describeCounts(outcome.result)],
         articles,
         samples: outcome.result.samples,
       });
@@ -686,7 +660,7 @@ function reportFailure(deps: PublishDeps, error: unknown): void {
     deps.ui.report({
       outcome: "failed",
       headline: t.report.stopped,
-      paragraphs: [error.message, t.report.stoppedDetail],
+      paragraphs: [error.message, t.report.unchanged],
       articles: [],
       samples: undefined,
     });

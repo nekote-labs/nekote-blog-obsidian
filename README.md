@@ -31,10 +31,10 @@ Inside the content root, `posts/` holds blog posts and `pages/` holds standalone
 your own organization and do not affect public URLs. Use the `draft` property in frontmatter to
 switch between published and draft.
 
-Before anything is uploaded, the plugin shows how many notes are published, drafted, or in error,
-and how much data will be sent. It asks for an extra confirmation on the first publish, when the
-content root changes, when many files would be deleted, and when another device has published since
-your last run.
+Before uploading, the plugin shows the destination blog and the notes to publish. Large file reads
+and uploads also show file counts and sizes. It asks for an extra confirmation on the first publish,
+when the content root changes, when many files would be deleted, and when another device has
+published since your last run.
 
 The text the plugin shows follows your Obsidian display language. English and Japanese are
 available; any other language falls back to English.
