@@ -144,28 +144,20 @@ export const en = {
     blog: (title: string, subdomain: string) =>
       `Publishing to: ${title} (${subdomain}.nekote.blog)`,
     scanConfirm: {
-      noteTitle: "There are a lot of notes",
-      assetTitle: "There are a lot of referenced assets",
+      noteTitle: "Read these notes?",
+      assetTitle: "Read these referenced files?",
       noteAmount: (contentRoot: string, count: number, size: string) =>
-        `The content root ${contentRoot} contains ${count} ${plural(count, "note", "notes")} (${size}).`,
+        `${contentRoot}: ${count} ${plural(count, "note", "notes")} (${size})`,
       assetAmount: (contentRoot: string, count: number, size: string) =>
-        `The content root ${contentRoot} contains ${count} referenced ${plural(count, "asset", "assets")} (${size}).`,
-      noteWarning:
-        "Continuing will read all of these notes. Make sure the content root is correct.",
-      assetWarning: "Continuing will read all of these assets.",
-      confirmLabel: "Continue",
+        `${contentRoot}: ${count} referenced ${plural(count, "file", "files")} (${size})`,
+      noteWarning: "Make sure this is the correct folder.",
+      confirmLabel: "Read files",
     },
     confirmPublish: {
       title: "Publish to Nekote Blog",
-      summary: (
-        noteCount: number,
-        publishedCount: number,
-        draftCount: number,
-        assetCount: number,
-        contentRoot: string,
-      ) =>
-        `Publishing ${noteCount} ${plural(noteCount, "note", "notes")} (${publishedCount} public, ${draftCount} ${plural(draftCount, "draft", "drafts")}) and ${assetCount} referenced ${plural(assetCount, "asset", "assets")} from the content root ${contentRoot}.`,
-      note: "Unchanged files are not sent. Notes removed since the previous publish are also deleted from the blog.",
+      summary: (publishedCount: number, draftCount: number) =>
+        `${publishedCount} public / ${draftCount} ${plural(draftCount, "draft", "drafts")}`,
+      note: "Posts no longer included are deleted from the blog.",
       confirmLabel: "Publish",
     },
     /** 「このノートだけ反映」（部分反映）の文言 */
@@ -178,50 +170,41 @@ export const en = {
         "Nekote Blog: You cannot publish a single note right now. Run Publish to publish everything.",
       confirm: {
         title: "Publish this note",
-        summary: (title: string, path: string, assetCount: number) =>
-          `Publishing only "${title}" (${path}) and ${assetCount} referenced ${plural(assetCount, "asset", "assets")}.`,
-        draftNote: "This note is a draft, so it stays unpublished on your blog.",
-        note: "Other posts are left as they are. Moves, renames and deletions are not applied by this action. Run Publish for those.",
-        confirmLabel: "Publish this note",
+        summary: (title: string, path: string) => `"${title}" (${path})`,
+        draftNote: "This draft will not be public on your blog.",
+        note: "Moves, renames and deletions require a full publish.",
+        confirmLabel: "Publish",
       },
       anotherDevice: {
-        detail:
-          "Another device has published. This note is applied on top of that, and other posts are not changed. To bring this device up to date, sync your vault and run Publish.",
+        detail: "This note will be overwritten with the version on this device.",
         confirmLabel: "Publish this note",
       },
-      preflightCounts: (added: number, updated: number, unchanged: number, untouched: number) =>
-        `Posts: ${added} added / ${updated} updated / ${unchanged} unchanged / ${untouched} untouched`,
+      preflightCounts: (added: number, updated: number, unchanged: number) =>
+        `${added} added / ${updated} updated / ${unchanged} unchanged`,
       reportApplied: "This note was published",
     },
     sameVault: {
-      title: "Treat this as the connected vault?",
-      intro: "An Obsidian vault is already connected to this blog.",
-      detail: (revision: number) =>
-        `If you treat the vault on this device as the same vault, publishing continues from the existing revision (currently ${revision}). If this is a different vault, cancel here.`,
-      serverContentRoot: "Content root on the server",
+      title: "Is this the same vault already connected?",
+      serverContentRoot: (contentRoot: string) => `Connected content root: ${contentRoot}`,
       confirmLabel: "Continue as the same vault",
     },
     differentVault: {
       title: "This is not the connected vault",
-      intro:
-        "A different vault is connected to this blog. Publishing from the vault on this device deletes all existing posts first, then rebuilds them from the contents of this vault.",
-      warning: "If the rebuild fails partway through, your blog is temporarily left with no posts.",
+      intro: "All blog posts will be deleted and replaced with the contents of this vault.",
+      warning: "If this fails partway through, your blog may temporarily have no posts.",
       confirmLabel: "Replace with this vault",
     },
     contentRootChange: {
       title: "Change the content root",
-      detail: (from: string, to: string) =>
-        `The starting point for publishing changes from ${from} to ${to}.`,
-      warning: "Notes outside the new starting point are deleted from the published posts.",
+      detail: (from: string, to: string) => `${from} → ${to}`,
+      warning: "Posts outside the new publish selection are deleted from the blog.",
       confirmLabel: "Change and continue",
     },
     overwrite: {
       publishedFromAnotherDevice: "Published from another device",
-      anotherPublishApplied: "Another publish was applied first",
-      revisionMismatch: (revision: number) =>
-        `The current revision on Nekote Blog is ${revision}, which does not match the record on this device.`,
+      anotherPublishApplied: "Another publish has completed",
       warning:
-        "Continuing replaces the published posts with the current contents of this vault. To keep the changes made on the other device, sync your vault first and try again.",
+        "Your blog will be overwritten with this vault. To keep changes from another device, sync your vault first.",
       added: (count: number) => `Added ${count} ${plural(count, "file", "files")}`,
       updated: (count: number) => `Updated ${count} ${plural(count, "file", "files")}`,
       deleted: (count: number) => `Deleted ${count} ${plural(count, "file", "files")}`,
@@ -229,24 +212,22 @@ export const en = {
     },
     /** サーバーが返す`confirmationReasons`の説明文 */
     reasons: {
-      initialConnect: "This is the first publish to this blog.",
       sourceSwitch:
-        "Switching from another content source to Obsidian. The existing posts are rebuilt.",
+        "Switching from another content source: the existing posts are deleted and rebuilt. If this fails partway through, your blog may temporarily have no posts.",
       contentRootChanged: "The content root will change.",
       largeDelete: "A large number of posts will be deleted.",
       largeChange: "A large number of posts will be added or updated.",
       largeUpload: "A large amount of file data will be sent.",
-      unknown: "This publish needs your confirmation.",
     },
     preflight: {
       initialTitle: "Confirm your first publish",
       title: "Review what will be published",
       articles: (publishedCount: number, draftCount: number) =>
-        `${publishedCount} public / ${draftCount} ${plural(draftCount, "draft", "drafts")}`,
+        `Posts to publish: ${publishedCount} public / ${draftCount} ${plural(draftCount, "draft", "drafts")}`,
       draftPrefix: "[Draft] ",
       article: (title: string, path: string) => `${title} (${path})`,
       counts: (added: number, updated: number, deleted: number, unchanged: number) =>
-        `Posts: ${added} added / ${updated} updated / ${deleted} deleted / ${unchanged} unchanged`,
+        `${added} added / ${updated} updated / ${deleted} deleted / ${unchanged} unchanged`,
       filesToSend: (count: number, size: string) => `Files to send: ${count} (${size})`,
       confirmLabel: "Publish",
     },
@@ -257,12 +238,11 @@ export const en = {
         failed: (count: number) => `${count} failed`,
       },
       failed: "Could not publish",
-      failedDetail: "The published posts are left as they were. Fix the problem and run it again.",
       applying: "Publishing on Nekote Blog",
       applyingDetail:
-        'Sending finished. Run "Publish to Nekote Blog" again to check whether it completed.',
+        'Sending finished. The result is shown the next time you run "Publish to Nekote Blog".',
       stopped: "Publish stopped",
-      stoppedDetail: "The published posts are unchanged.",
+      unchanged: "The published posts are unchanged.",
     },
     modeMismatch:
       "The server could not confirm the publish mode, so nothing was sent. Update the plugin, or run Publish to publish everything.",

@@ -382,9 +382,11 @@ describe("publish: vault IDの突き合わせ", () => {
     await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual([
-      "Treat this as the connected vault?",
+      "Is this the same vault already connected?",
       "Publish to Nekote Blog",
     ]);
+    expect(harness.confirms[0]?.paragraphs).toEqual(['Connected content root: "blog"']);
+    expect(harness.confirms[0]?.sections).toBeUndefined();
     expect(harness.settings.vaultId).toBe(VAULT_ID);
     expect(harness.begins[0]?.vaultId).toBe(VAULT_ID);
   });
@@ -409,6 +411,11 @@ describe("publish: vault IDの突き合わせ", () => {
       "Review what will be published",
     ]);
     expect(harness.confirms[0]?.danger).toBe(true);
+    // 仕様: purge後の初回同期が失敗すると記事が一時的に空になることを承認画面で明示する
+    expect(harness.confirms[0]?.paragraphs).toEqual([
+      "All blog posts will be deleted and replaced with the contents of this vault.",
+      "If this fails partway through, your blog may temporarily have no posts.",
+    ]);
     // 承諾してもローカルのvault IDのまま送る（サーバー側が初回接続として作り直す）
     expect(harness.settings.vaultId).toBe("vault-local-0001");
     expect(harness.begins[0]?.vaultId).toBe("vault-local-0001");
@@ -492,15 +499,28 @@ describe("publish: 反映前の確認", () => {
     );
   });
 
-  it("サーバーが確認を求めたときも反映先のブログを見せる", async () => {
-    const harness = createHarness({ begin: [beginResponse({ confirmationRequired: true })] });
+  it.each([false, true])(
+    "サーバー確認に反映先を示し、大量送信の場合だけ容量を添える（大量送信: %s）",
+    async (largeUpload) => {
+      const harness = createHarness({
+        begin: [
+          pushBeginResponse({
+            confirmationRequired: true,
+            preflight: { confirmationReasons: largeUpload ? ["large_upload"] : [] },
+          }),
+        ],
+      });
 
-    await publish(harness.deps, { kind: "all" });
+      await publish(harness.deps, { kind: "all" });
 
-    const preflight = harness.confirms[1];
-    expect(preflight?.title).toBe("Review what will be published");
-    expect(preflight?.paragraphs[0]).toBe("Publishing to: ねこのブログ (neko.nekote.blog)");
-  });
+      const preflight = harness.confirms[1];
+      expect(preflight?.title).toBe("Review what will be published");
+      expect(preflight?.paragraphs[0]).toBe("Publishing to: ねこのブログ (neko.nekote.blog)");
+      expect(preflight?.paragraphs.some((text) => text.startsWith("Files to send:"))).toBe(
+        largeUpload,
+      );
+    },
+  );
 
   it("接続済みなら送信前の確認を出し、前回からの削除の注記を添える", async () => {
     const harness = createHarness();
@@ -509,10 +529,11 @@ describe("publish: 反映前の確認", () => {
 
     const paragraphs = harness.confirms[0]?.paragraphs ?? [];
     expect(harness.confirms[0]?.title).toBe("Publish to Nekote Blog");
-    expect(paragraphs[1]).toMatch(/^Publishing \d+ notes/);
-    expect(paragraphs.at(-1)).toBe(
-      "Unchanged files are not sent. Notes removed since the previous publish are also deleted from the blog.",
-    );
+    expect(paragraphs).toEqual([
+      "Publishing to: ねこのブログ (neko.nekote.blog)",
+      "1 public / 1 draft",
+      "Posts no longer included are deleted from the blog.",
+    ]);
   });
 
   // 初回接続と別ソースからの切替はサーバーのpreflightが必ず確認を返すので、
@@ -531,7 +552,11 @@ describe("publish: 反映前の確認", () => {
     await publish(harness.deps, { kind: "all" });
 
     expect(titles(harness)).toEqual(["Confirm your first publish"]);
-    expect(harness.confirms[0]?.paragraphs[1]).toBe("This is the first publish to this blog.");
+    // 初回接続は題名で分かるので理由文を出さず、反映先と件数だけにする
+    expect(harness.confirms[0]?.paragraphs).toEqual([
+      "Publishing to: ねこのブログ (neko.nekote.blog)",
+      expect.stringMatching(/^\d+ added \/ \d+ updated \/ \d+ deleted \/ \d+ unchanged$/),
+    ]);
     // 削除0件の初回接続は壊すものが無いので破壊的操作にしない
     expect(harness.confirms[0]?.danger).toBe(false);
     expect(harness.reports[0]).toMatchObject({ outcome: "applied" });
@@ -552,7 +577,7 @@ describe("publish: 反映前の確認", () => {
 
     expect(titles(harness)).toEqual(["Confirm your first publish"]);
     expect(harness.confirms[0]?.paragraphs[1]).toBe(
-      "Switching from another content source to Obsidian. The existing posts are rebuilt.",
+      "Switching from another content source: the existing posts are deleted and rebuilt. If this fails partway through, your blog may temporarily have no posts.",
     );
     // 既存記事を作り直すので削除0件でも破壊的操作にする
     expect(harness.confirms[0]?.danger).toBe(true);
@@ -598,10 +623,7 @@ describe("publish: revision_conflict", () => {
 
     await publish(harness.deps, { kind: "all" });
 
-    expect(titles(harness)).toEqual([
-      "Publish to Nekote Blog",
-      "Another publish was applied first",
-    ]);
+    expect(titles(harness)).toEqual(["Publish to Nekote Blog", "Another publish has completed"]);
     expect(harness.begins.map((manifest) => manifest.baseRevision)).toEqual([12, 20]);
     expect(harness.reports[0]?.outcome).toBe("applied");
   });
@@ -777,20 +799,19 @@ describe("publish: このノートだけ反映", () => {
     expect(harness.vaultCalls).not.toContain("readText:blog/posts/draft.md");
   });
 
-  it("送信前の確認に反映先・対象ノート・他の記事への影響を出す", async () => {
+  it("送信前の確認に反映先・対象ノート・操作の制約を出す", async () => {
     const harness = createPartialHarness();
 
     await publishNote(harness);
 
     expect(harness.confirms[0]).toMatchObject({
       title: "Publish this note",
-      confirmLabel: "Publish this note",
+      confirmLabel: "Publish",
     });
     expect(harness.confirms[0]?.paragraphs).toEqual([
       "Publishing to: ねこのブログ (neko.nekote.blog)",
-      'Publishing only "こんにちは" (posts/hello.md) and 1 referenced asset.',
-      "Other posts are left as they are. Moves, renames and deletions are not applied by this " +
-        "action. Run Publish for those.",
+      '"こんにちは" (posts/hello.md)',
+      "Moves, renames and deletions require a full publish.",
     ]);
   });
 
@@ -799,9 +820,7 @@ describe("publish: このノートだけ反映", () => {
 
     await publishNote(harness, "blog/posts/draft.md");
 
-    expect(harness.confirms[0]?.paragraphs[2]).toBe(
-      "This note is a draft, so it stays unpublished on your blog.",
-    );
+    expect(harness.confirms[0]?.paragraphs[2]).toBe("This draft will not be public on your blog.");
   });
 
   it("送信前の確認を断ると何も送らない", async () => {
@@ -826,16 +845,14 @@ describe("publish: このノートだけ反映", () => {
     );
   });
 
-  it("サーバーが確認を求めたら、削除を含まない件数を出す", async () => {
+  it("サーバーが確認を求めたら、削除・対象外の記事を含まない件数を出す", async () => {
     const harness = createPartialHarness({
       begin: [partialBeginResponse({ confirmationRequired: true })],
     });
 
     await publishNote(harness);
 
-    expect(harness.confirms[1]?.paragraphs).toContain(
-      "Posts: 0 added / 1 updated / 0 unchanged / 3 untouched",
-    );
+    expect(harness.confirms[1]?.paragraphs).toContain("0 added / 1 updated / 0 unchanged");
   });
 
   it("成功すると部分反映の結果だけを出し、lastPushを更新する", async () => {
@@ -866,7 +883,7 @@ describe("publish: このノートだけ反映", () => {
     expect(harness.reports[0]).toMatchObject({
       outcome: "failed",
       headline: "Could not publish",
-      paragraphs: ["The published posts are left as they were. Fix the problem and run it again."],
+      paragraphs: ["The published posts are unchanged."],
       samples,
     });
     expect(harness.settings.lastPush).toEqual(LAST_PUSH_AT_12);
@@ -908,6 +925,9 @@ describe("publish: このノートだけ反映と他端末の反映", () => {
     await publishNote(harness);
 
     expect(titles(harness)).toEqual(["Published from another device", "Publish this note"]);
+    expect(harness.confirms[0]?.paragraphs).toEqual([
+      "This note will be overwritten with the version on this device.",
+    ]);
     expect(harness.confirms[0]?.sections).toBeUndefined();
     expect(harness.confirms[0]?.confirmLabel).toBe("Publish this note");
     // 差分一覧を作らないので適用済みmanifestは読まない
@@ -934,7 +954,7 @@ describe("publish: このノートだけ反映と他端末の反映", () => {
 
     await publishNote(harness);
 
-    expect(titles(harness)).toEqual(["Publish this note", "Another publish was applied first"]);
+    expect(titles(harness)).toEqual(["Publish this note", "Another publish has completed"]);
     expect(harness.confirms[1]?.sections).toBeUndefined();
     expect(harness.begins.map((manifest) => manifest.baseRevision)).toEqual([12, 20]);
     expect(harness.reports[0]?.outcome).toBe("applied");

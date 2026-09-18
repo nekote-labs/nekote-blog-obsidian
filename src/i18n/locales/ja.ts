@@ -126,31 +126,22 @@ export const ja = {
     cancelled: "反映をキャンセルしました。",
     vaultRoot: "（vaultのルート）",
     quotedPath: (path: string) => `「${path}」`,
-    blog: (title: string, subdomain: string) =>
-      `反映先のブログ: ${title}（${subdomain}.nekote.blog）`,
+    blog: (title: string, subdomain: string) => `反映先: ${title}（${subdomain}.nekote.blog）`,
     scanConfirm: {
-      noteTitle: "ノートが多いので確認します",
-      assetTitle: "参照アセットが多いので確認します",
+      noteTitle: "ノートを読み取りますか？",
+      assetTitle: "参照ファイルを読み取りますか？",
       noteAmount: (contentRoot: string, count: number, size: string) =>
-        `コンテンツルート${contentRoot}のノートは${count}件・${size}です。`,
+        `${contentRoot}のノート: ${count}件（${size}）`,
       assetAmount: (contentRoot: string, count: number, size: string) =>
-        `コンテンツルート${contentRoot}の参照アセットは${count}件・${size}です。`,
-      noteWarning:
-        "このまま続けると、これらのノートを読み取ります。コンテンツルートの指定が正しいか確認してください。",
-      assetWarning: "このまま続けると、これらのアセットを読み取ります。",
-      confirmLabel: "続ける",
+        `${contentRoot}の参照ファイル: ${count}件（${size}）`,
+      noteWarning: "対象フォルダが正しいか確認してください。",
+      confirmLabel: "読み取る",
     },
     confirmPublish: {
-      title: "Nekote Blogへ反映します",
-      summary: (
-        noteCount: number,
-        publishedCount: number,
-        draftCount: number,
-        assetCount: number,
-        contentRoot: string,
-      ) =>
-        `コンテンツルート${contentRoot}のノート${noteCount}件（公開${publishedCount}件・下書き${draftCount}件）・参照アセット${assetCount}件を反映します。`,
-      note: "変更のないファイルは送信されません。前回の反映から消えたノートはブログからも削除されます。",
+      title: "Nekote Blogへ反映",
+      summary: (publishedCount: number, draftCount: number) =>
+        `公開${publishedCount}件 / 下書き${draftCount}件`,
+      note: "反映対象から外れた記事は、ブログから削除されます。",
       confirmLabel: "反映する",
     },
     partial: {
@@ -161,74 +152,65 @@ export const ja = {
       notAllowed:
         "Nekote Blog: この状態ではこのノートだけの反映はできません。「Nekote Blogへ反映」で全体を反映してください。",
       confirm: {
-        title: "このノートだけ反映します",
-        summary: (title: string, path: string, assetCount: number) =>
-          `「${title}」（${path}）と参照アセット${assetCount}件だけを反映します。`,
-        draftNote: "このノートは下書きなので、ブログでは非公開になります。",
-        note: "他の記事はそのままです。移動・改名・削除はこの操作では反映されません。「Nekote Blogへ反映」で全体を反映してください。",
-        confirmLabel: "このノートだけ反映する",
+        title: "このノートだけ反映",
+        summary: (title: string, path: string) => `「${title}」（${path}）`,
+        draftNote: "下書きのため、ブログでは非公開になります。",
+        note: "移動・改名・削除には全体の反映が必要です。",
+        confirmLabel: "反映する",
       },
       anotherDevice: {
-        detail:
-          "他の端末が反映しています。このノートはその上に重ねて反映され、他の記事は変わりません。この端末を最新にするには、vaultを同期してから「Nekote Blogへ反映」を実行してください。",
+        detail: "このノートを、この端末の内容で上書きします。",
         confirmLabel: "このノートだけ反映する",
       },
-      preflightCounts: (added: number, updated: number, unchanged: number, untouched: number) =>
-        `記事: 追加 ${added}件 / 更新 ${updated}件 / 変更なし ${unchanged}件 / 今回載せない ${untouched}件`,
+      preflightCounts: (added: number, updated: number, unchanged: number) =>
+        `追加${added}件 / 更新${updated}件 / 変更なし${unchanged}件`,
       reportApplied: "このノートを反映しました",
     },
     sameVault: {
-      title: "接続済みのvaultとして扱いますか？",
-      intro: "このブログにはすでにObsidianのvaultが接続されています。",
-      detail: (revision: number) =>
-        `この端末のvaultを同じvaultとして扱うと、続きのrevision（現在 ${revision}）から反映します。別のvaultなら、ここでキャンセルしてください。`,
-      serverContentRoot: "サーバーのコンテンツルート",
+      title: "接続済みのvaultと同じものですか？",
+      serverContentRoot: (contentRoot: string) => `接続済みのコンテンツルート: ${contentRoot}`,
       confirmLabel: "同じvaultとして続ける",
     },
     differentVault: {
       title: "接続されているvaultと違います",
-      intro:
-        "このブログには別のvaultが接続されています。この端末のvaultで反映すると、既存の記事をすべて削除してから、このvaultの内容で作り直します。",
-      warning: "作り直しの途中で失敗すると、記事が一時的に空になります。",
+      intro: "ブログの全記事を削除し、このvaultの内容に置き換えます。",
+      warning: "途中で失敗すると、記事が一時的に空になります。",
       confirmLabel: "このvaultで置き換える",
     },
     contentRootChange: {
-      title: "コンテンツルートを変更します",
-      detail: (from: string, to: string) => `公開の起点を${from}から${to}へ変えます。`,
-      warning: "新しい起点にないノートは、公開中の記事から削除されます。",
+      title: "コンテンツルートの変更",
+      detail: (from: string, to: string) => `${from} → ${to}`,
+      warning: "新しい反映対象にない記事は、ブログから削除されます。",
       confirmLabel: "変更して続ける",
     },
     overwrite: {
       publishedFromAnotherDevice: "他の端末から反映されています",
-      anotherPublishApplied: "他の反映が先に適用されています",
-      revisionMismatch: (revision: number) =>
-        `Nekote Blogの現在のrevisionは ${revision} で、この端末の記録と違います。`,
+      anotherPublishApplied: "別の反映が完了しました",
       warning:
-        "このまま続けると、いまのvaultの内容で公開中の記事を置き換えます。他の端末の変更を残したい場合は、先にvaultを同期してからやり直してください。",
+        "ブログをこのvaultの内容で上書きします。他の端末の変更を残すには、先にvaultを同期してください。",
       added: (count: number) => `追加 ${count}件`,
       updated: (count: number) => `更新 ${count}件`,
       deleted: (count: number) => `削除 ${count}件`,
       confirmLabel: "このvaultの内容で上書きする",
     },
     reasons: {
-      initialConnect: "このブログへの初めての反映です。",
-      sourceSwitch: "別の記事ソースからObsidianへ切り替えます。既存の記事は作り直されます。",
+      sourceSwitch:
+        "別の記事ソースから切り替えるため、既存の記事を削除して作り直します。途中で失敗すると、記事が一時的に空になります。",
       contentRootChanged: "コンテンツルートが変わります。",
       largeDelete: "削除される記事が多くあります。",
       largeChange: "追加・更新される記事が多くあります。",
       largeUpload: "送信するファイルの量が多くなります。",
-      unknown: "内容の確認が必要です。",
     },
     preflight: {
-      initialTitle: "初めての反映を確定します",
-      title: "反映の内容を確認してください",
+      initialTitle: "初めての反映",
+      title: "反映内容の確認",
       articles: (publishedCount: number, draftCount: number) =>
-        `公開 ${publishedCount}件 / 下書き ${draftCount}件`,
+        `反映する記事: 公開${publishedCount}件 / 下書き${draftCount}件`,
       draftPrefix: "［下書き］",
       article: (title: string, path: string) => `${title}（${path}）`,
       counts: (added: number, updated: number, deleted: number, unchanged: number) =>
-        `記事: 追加 ${added}件 / 更新 ${updated}件 / 削除 ${deleted}件 / 変更なし ${unchanged}件`,
-      filesToSend: (count: number, size: string) => `送信するファイル: ${count}件・${size}`,
+        `追加${added}件 / 更新${updated}件 / 削除${deleted}件 / 変更なし${unchanged}件`,
+      filesToSend: (count: number, size: string) => `送信するファイル: ${count}件（${size}）`,
       confirmLabel: "反映する",
     },
     report: {
@@ -238,12 +220,11 @@ export const ja = {
         failed: (count: number) => `失敗${count}件`,
       },
       failed: "反映できませんでした",
-      failedDetail: "公開中の記事はそのまま残っています。原因を直して、もう一度実行してください。",
       applying: "Nekote Blogで反映しています",
       applyingDetail:
-        "送信は終わりました。反映の完了はもう一度「Nekote Blogへ反映」を実行すると確認できます。",
+        "送信は完了しました。結果は次に「Nekote Blogへ反映」を実行したときに表示されます。",
       stopped: "反映を中止しました",
-      stoppedDetail: "公開中の記事は変わっていません。",
+      unchanged: "公開中の記事は変わっていません。",
     },
     modeMismatch:
       "サーバーが反映モードを確認できなかったため、何も送っていません。プラグインを更新するか、「Nekote Blogへ反映」で全体を反映してください。",

@@ -40,16 +40,12 @@ describe("getTranslations()", () => {
 describe("en: 単数形と複数形", () => {
   it("1件なら単数形になる", () => {
     expect(en.reportModal.needAttention(1)).toBe("1 post needs attention");
-    expect(en.publish.scanConfirm.noteAmount('"blog"', 1, "1 KB")).toBe(
-      'The content root "blog" contains 1 note (1 KB).',
-    );
-    expect(en.publish.preflight.articles(1, 1)).toBe("1 public / 1 draft");
+    expect(en.publish.scanConfirm.noteAmount('"blog"', 1, "1 KB")).toBe('"blog": 1 note (1 KB)');
+    expect(en.publish.preflight.articles(1, 1)).toBe("Posts to publish: 1 public / 1 draft");
   });
 
   it("2件以上なら複数形になる", () => {
     expect(en.reportModal.needAttention(2)).toBe("2 posts need attention");
-    expect(en.publish.confirmPublish.summary(3, 1, 2, 4, '"blog"')).toBe(
-      'Publishing 3 notes (1 public, 2 drafts) and 4 referenced assets from the content root "blog".',
-    );
+    expect(en.publish.confirmPublish.summary(1, 2)).toBe("1 public / 2 drafts");
   });
 });
