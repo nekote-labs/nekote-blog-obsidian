@@ -411,6 +411,11 @@ describe("publish: vault IDの突き合わせ", () => {
       "Review what will be published",
     ]);
     expect(harness.confirms[0]?.danger).toBe(true);
+    // 仕様: purge後の初回同期が失敗すると記事が一時的に空になることを承認画面で明示する
+    expect(harness.confirms[0]?.paragraphs).toEqual([
+      "All blog posts will be deleted and replaced with the contents of this vault.",
+      "If this fails partway through, your blog may temporarily have no posts.",
+    ]);
     // 承諾してもローカルのvault IDのまま送る（サーバー側が初回接続として作り直す）
     expect(harness.settings.vaultId).toBe("vault-local-0001");
     expect(harness.begins[0]?.vaultId).toBe("vault-local-0001");
@@ -572,7 +577,7 @@ describe("publish: 反映前の確認", () => {
 
     expect(titles(harness)).toEqual(["Confirm your first publish"]);
     expect(harness.confirms[0]?.paragraphs[1]).toBe(
-      "Switching from another content source to Obsidian. The existing posts are rebuilt.",
+      "Switching from another content source: the existing posts are deleted and rebuilt. If this fails partway through, your blog may temporarily have no posts.",
     );
     // 既存記事を作り直すので削除0件でも破壊的操作にする
     expect(harness.confirms[0]?.danger).toBe(true);

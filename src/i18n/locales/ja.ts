@@ -174,6 +174,7 @@ export const ja = {
     differentVault: {
       title: "接続されているvaultと違います",
       intro: "ブログの全記事を削除し、このvaultの内容に置き換えます。",
+      warning: "途中で失敗すると、記事が一時的に空になります。",
       confirmLabel: "このvaultで置き換える",
     },
     contentRootChange: {
@@ -193,7 +194,8 @@ export const ja = {
       confirmLabel: "このvaultの内容で上書きする",
     },
     reasons: {
-      sourceSwitch: "別の記事ソースからObsidianへ切り替えます。既存の記事は作り直されます。",
+      sourceSwitch:
+        "別の記事ソースから切り替えるため、既存の記事を削除して作り直します。途中で失敗すると、記事が一時的に空になります。",
       contentRootChanged: "コンテンツルートが変わります。",
       largeDelete: "削除される記事が多くあります。",
       largeChange: "追加・更新される記事が多くあります。",

@@ -372,7 +372,7 @@ async function resolveVaultId(deps: PublishDeps, source: ConnectionSource): Prom
 
   const ok = await deps.ui.confirm({
     title: t.differentVault.title,
-    paragraphs: [t.differentVault.intro],
+    paragraphs: [t.differentVault.intro, t.differentVault.warning],
     confirmLabel: t.differentVault.confirmLabel,
     danger: true,
   });

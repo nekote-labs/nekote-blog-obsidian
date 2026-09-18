@@ -191,6 +191,7 @@ export const en = {
     differentVault: {
       title: "This is not the connected vault",
       intro: "All blog posts will be deleted and replaced with the contents of this vault.",
+      warning: "If this fails partway through, your blog may temporarily have no posts.",
       confirmLabel: "Replace with this vault",
     },
     contentRootChange: {
@@ -212,7 +213,7 @@ export const en = {
     /** サーバーが返す`confirmationReasons`の説明文 */
     reasons: {
       sourceSwitch:
-        "Switching from another content source to Obsidian. The existing posts are rebuilt.",
+        "Switching from another content source: the existing posts are deleted and rebuilt. If this fails partway through, your blog may temporarily have no posts.",
       contentRootChanged: "The content root will change.",
       largeDelete: "A large number of posts will be deleted.",
       largeChange: "A large number of posts will be added or updated.",
