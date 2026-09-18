@@ -191,9 +191,7 @@ export const en = {
       },
       preflightCounts: (added: number, updated: number, unchanged: number, untouched: number) =>
         `Posts: ${added} added / ${updated} updated / ${unchanged} unchanged / ${untouched} untouched`,
-      reportApplied: (revision: number) => `This note was published (revision ${revision})`,
-      untouched: (count: number) =>
-        `The other ${count} ${plural(count, "post is", "posts are")} unchanged.`,
+      reportApplied: "This note was published",
     },
     sameVault: {
       title: "Treat this as the connected vault?",
@@ -253,7 +251,11 @@ export const en = {
       confirmLabel: "Publish",
     },
     report: {
-      applied: (revision: number) => `Published (revision ${revision})`,
+      applied: "Published",
+      counts: {
+        succeeded: (count: number) => `${count} succeeded`,
+        failed: (count: number) => `${count} failed`,
+      },
       failed: "Could not publish",
       failedDetail: "The published posts are left as they were. Fix the problem and run it again.",
       applying: "Publishing on Nekote Blog",
@@ -372,9 +374,10 @@ export const en = {
   },
 
   reportModal: {
+    check: "Please check",
     needAttention: (count: number) =>
       `${count} ${plural(count, "post needs", "posts need")} attention`,
-    messages: "Errors and warnings from the server",
+    messages: "Needs attention",
     error: "Error",
     warning: "Warning",
     article: (title: string, path: string) => `${title} (${path})`,

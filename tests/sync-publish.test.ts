@@ -129,7 +129,7 @@ function statusResponse(
   state: PushState,
   overrides: Partial<PushStatusResponse> = {},
 ): PushStatusResponse {
-  return pushStatusResponse(state, { counts: { published: 1, draft: 1 }, ...overrides });
+  return pushStatusResponse(state, { counts: { target: 2, succeeded: 2 }, ...overrides });
 }
 
 /** 部分反映の応答。`mode`が送ったものと違うとプラグインは原本を送らずに中止する */
@@ -153,7 +153,11 @@ function partialStatusResponse(
   state: PushState,
   overrides: Partial<PushStatusResponse> = {},
 ): PushStatusResponse {
-  return statusResponse(state, { mode: "partial", ...overrides });
+  return statusResponse(state, {
+    mode: "partial",
+    counts: { target: 1, succeeded: 1 },
+    ...overrides,
+  });
 }
 
 function appliedManifest(
@@ -633,7 +637,8 @@ describe("publish: 反映の結果", () => {
     expect(harness.storage.writes.map((write) => write.secret)).toEqual([PUSH_ID, ""]);
     expect(harness.reports[0]).toMatchObject({
       outcome: "applied",
-      headline: "Published (revision 13)",
+      headline: "Published",
+      paragraphs: ["2 succeeded"],
     });
   });
 
@@ -833,21 +838,38 @@ describe("publish: このノートだけ反映", () => {
     );
   });
 
-  it("成功すると部分反映の見出しと他の記事の件数を出し、lastPushを更新する", async () => {
+  it("成功すると部分反映の結果だけを出し、lastPushを更新する", async () => {
     const harness = createPartialHarness();
 
     await publishNote(harness);
 
     expect(harness.reports[0]).toMatchObject({
       outcome: "applied",
-      headline: "This note was published (revision 13)",
+      headline: "This note was published",
     });
-    expect(harness.reports[0]?.paragraphs[0]).toBe("The other 3 posts are unchanged.");
+    expect(harness.reports[0]?.paragraphs).toEqual([]);
     expect(harness.settings.lastPush).toEqual({
       revision: 13,
       manifestHash: MANIFEST_HASH,
       syncedAt: new Date(NOW).toISOString(),
     });
+  });
+
+  it("単体反映の失敗時も件数を省き、原因は残す", async () => {
+    const samples = [{ kind: "error" as const, message: "Could not convert the note." }];
+    const harness = createPartialHarness({
+      status: [partialStatusResponse("failed", { counts: { target: 1, failed: 1 }, samples })],
+    });
+
+    await publishNote(harness);
+
+    expect(harness.reports[0]).toMatchObject({
+      outcome: "failed",
+      headline: "Could not publish",
+      paragraphs: ["The published posts are left as they were. Fix the problem and run it again."],
+      samples,
+    });
+    expect(harness.settings.lastPush).toEqual(LAST_PUSH_AT_12);
   });
 
   it("サーバーがmodeを返さなければ、原本を送らずpushIdも記録せずに中止する", async () => {
@@ -929,9 +951,8 @@ describe("publish: このノートだけ反映と他端末の反映", () => {
     await publish(harness.deps, { kind: "all" });
 
     expect(harness.calls).toEqual(["getPushStatus:push-previous"]);
-    expect(harness.reports[0]?.headline).toBe("This note was published (revision 13)");
-    // begin応答が無いので「他N件はそのまま」は出せない
-    expect(harness.reports[0]?.paragraphs).toEqual(["published: 1 / draft: 1"]);
+    expect(harness.reports[0]?.headline).toBe("This note was published");
+    expect(harness.reports[0]?.paragraphs).toEqual([]);
     expect(harness.settings.lastPush).toEqual(LAST_PUSH_AT_12);
   });
 });

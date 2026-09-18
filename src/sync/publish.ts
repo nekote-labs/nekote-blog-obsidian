@@ -154,7 +154,7 @@ async function publishAll(
 
   const baseRevision =
     connection.source.kind === "obsidian" ? connection.source.appliedRevision : 0;
-  const run = await push(deps, scan, {
+  const outcome = await push(deps, scan, {
     vaultId,
     baseRevision,
     blog: connection.blog,
@@ -166,7 +166,7 @@ async function publishAll(
         overwriteRequest(scan, applied, getTranslations().publish.overwrite.anotherPublishApplied),
       ),
   });
-  await reportOutcome(deps, scan, run.outcome, { untouchedCount: null, recordLastPush: true });
+  await reportOutcome(deps, scan, outcome, { recordLastPush: true });
 }
 
 /**
@@ -221,7 +221,7 @@ async function publishNote(
 
   if (!(await deps.ui.confirm(publishNoteConfirmRequest(scan, article, connection.blog)))) return;
 
-  const run = await push(deps, scan, {
+  const outcome = await push(deps, scan, {
     vaultId: source.vaultId,
     baseRevision: source.appliedRevision,
     blog: connection.blog,
@@ -233,8 +233,7 @@ async function publishNote(
       );
     },
   });
-  await reportOutcome(deps, scan, run.outcome, {
-    untouchedCount: run.begin?.preflight.untouchedCount ?? null,
+  await reportOutcome(deps, scan, outcome, {
     recordLastPush: revisionMatched,
   });
 }
@@ -253,7 +252,6 @@ async function reportResumedPush(deps: PublishDeps): Promise<boolean> {
     return false;
   }
   await reportOutcome(deps, null, outcome, {
-    untouchedCount: null,
     // 再開した部分反映は事前のrevision確認の結果が残っていないので`lastPush`を
     // 更新しない（次の全体反映で他端末の確認が1回余分に出るだけで済ませる）
     recordLastPush: outcome.status === "applied" && outcome.result.mode !== "partial",
@@ -469,12 +467,6 @@ function overwriteRequest(
   };
 }
 
-interface PushRun {
-  outcome: PushOutcome;
-  /** 最後のbegin応答。`preflight.untouchedCount`を結果報告に使う */
-  begin: PushBeginResponse | null;
-}
-
 async function push(
   deps: PublishDeps,
   scan: ScanResult,
@@ -488,37 +480,30 @@ async function push(
     /** サーバーが求めなくてもpreflightの確認を出す（`PushInput.requireConfirmation`） */
     requireConfirmation?: boolean;
   },
-): Promise<PushRun> {
-  // beginは`runPush()`の中で（`blobs_incomplete`後の再beginも含めて）返る
-  const started: { begin: PushBeginResponse | null } = { begin: null };
+): Promise<PushOutcome> {
   const start = (base: number): Promise<PushOutcome> =>
-    runPush(
-      pushDeps(deps, scan, options.blog, (begin) => {
-        started.begin = begin;
+    runPush(pushDeps(deps, scan, options.blog), {
+      manifest: buildSyncManifest({
+        vaultId: options.vaultId,
+        contentRoot: scan.contentRoot,
+        baseRevision: base,
+        mode: options.mode,
+        entries: scan.entries,
       }),
-      {
-        manifest: buildSyncManifest({
-          vaultId: options.vaultId,
-          contentRoot: scan.contentRoot,
-          baseRevision: base,
-          mode: options.mode,
-          entries: scan.entries,
-        }),
-        manifestHash: scan.manifestHash,
-        requireConfirmation: options.requireConfirmation,
-      },
-    );
+      manifestHash: scan.manifestHash,
+      requireConfirmation: options.requireConfirmation,
+    });
 
   try {
-    return { outcome: await start(options.baseRevision), begin: started.begin };
+    return await start(options.baseRevision);
   } catch (error) {
     if (!(error instanceof NekoteApiError) || error.code !== "revision_conflict") throw error;
     // 409。**自動でやり直さない**。利用者が決めたときだけ最新baseで送る
     const applied = await deps.client.getAppliedManifest();
     if (!(await options.confirmConflict(applied))) {
-      return { outcome: { status: "cancelled" }, begin: started.begin };
+      return { status: "cancelled" };
     }
-    return { outcome: await start(applied.appliedRevision), begin: started.begin };
+    return await start(applied.appliedRevision);
   }
 }
 
@@ -526,7 +511,6 @@ function pushDeps(
   deps: PublishDeps,
   scan: ScanResult | null,
   blog: ConnectionBlog | null,
-  onStarted?: (begin: PushBeginResponse) => void,
 ): PushDeps {
   return {
     client: deps.client,
@@ -543,7 +527,6 @@ function pushDeps(
     sleep: deps.sleep,
     onPushStarted: (begin) => {
       deps.secrets.setPendingPushId(begin.pushId);
-      onStarted?.(begin);
     },
     signal: deps.signal,
   };
@@ -619,8 +602,6 @@ function preflightRequest(
 }
 
 interface OutcomeContext {
-  /** 部分反映の「他N件はそのまま」に出す件数。begin応答を持たない再開経路ではnull */
-  untouchedCount: number | null;
   /**
    * 成功時に`lastPush`を更新してよいか。
    *
@@ -655,15 +636,8 @@ async function reportOutcome(
       const partial = outcome.result.mode === "partial";
       deps.ui.report({
         outcome: "applied",
-        headline: partial
-          ? t.partial.reportApplied(outcome.revision)
-          : t.report.applied(outcome.revision),
-        paragraphs: [
-          ...(partial && context.untouchedCount !== null
-            ? [t.partial.untouched(context.untouchedCount)]
-            : []),
-          ...describeCounts(outcome.result),
-        ],
+        headline: partial ? t.partial.reportApplied : t.report.applied,
+        paragraphs: describeCounts(outcome.result),
         articles,
         samples: outcome.result.samples,
       });
@@ -694,12 +668,15 @@ async function reportOutcome(
 }
 
 function describeCounts(result: PushStatusResponse): string[] {
+  if (result.mode === "partial") return [];
   const counts = result.counts;
   if (counts === undefined) return [];
-  const entries = Object.entries(counts).filter(([, value]) => value > 0);
-  return entries.length === 0
-    ? []
-    : [entries.map(([key, value]) => `${key}: ${value}`).join(" / ")];
+  const t = getTranslations().publish.report.counts;
+  const entries = Object.entries(t).flatMap(([key, label]) => {
+    const count = counts[key];
+    return count === undefined || count <= 0 ? [] : [label(count)];
+  });
+  return entries.length === 0 ? [] : [entries.join(" / ")];
 }
 
 function reportFailure(deps: PublishDeps, error: unknown): void {

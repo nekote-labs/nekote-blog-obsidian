@@ -30,11 +30,18 @@ class ReportModal extends Modal {
 
     const flagged = this.report.articles.filter((article) => article.issues.length > 0);
     if (flagged.length > 0) {
-      contentEl.createEl("h4", { text: t.needAttention(flagged.length) });
+      const singleArticle = this.report.articles.length === 1 ? flagged[0] : undefined;
+      contentEl.createEl("h4", {
+        text: singleArticle === undefined ? t.needAttention(flagged.length) : t.check,
+      });
       const list = contentEl.createEl("ul", { cls: "nekote-blog-list" });
-      appendTruncatedItems(list, flagged, MAX_LISTED_ARTICLES, (article) =>
-        appendArticle(list, article),
-      );
+      if (singleArticle !== undefined) {
+        appendIssues(list, singleArticle);
+      } else {
+        appendTruncatedItems(list, flagged, MAX_LISTED_ARTICLES, (article) =>
+          appendArticle(list, article),
+        );
+      }
     }
 
     const samples = this.report.samples ?? [];
@@ -59,9 +66,13 @@ function appendArticle(list: HTMLElement, article: ScannedArticle): void {
   const item = list.createEl("li");
   item.createDiv({ text: getTranslations().reportModal.article(article.title, article.path) });
   const issues = item.createEl("ul", { cls: "nekote-blog-list" });
+  appendIssues(issues, article);
+}
+
+function appendIssues(list: HTMLElement, article: ScannedArticle): void {
   for (const issue of article.issues) {
-    issues.createEl("li", {
-      cls: issue.level === "error" ? "nekote-blog-issue-error" : "nekote-blog-description",
+    list.createEl("li", {
+      cls: issue.level === "error" ? "nekote-blog-issue-error" : undefined,
       text: issue.message,
     });
   }

@@ -175,8 +175,7 @@ export const ja = {
       },
       preflightCounts: (added: number, updated: number, unchanged: number, untouched: number) =>
         `記事: 追加 ${added}件 / 更新 ${updated}件 / 変更なし ${unchanged}件 / 今回載せない ${untouched}件`,
-      reportApplied: (revision: number) => `このノートを反映しました（revision ${revision}）`,
-      untouched: (count: number) => `他の${count}件はそのままです。`,
+      reportApplied: "このノートを反映しました",
     },
     sameVault: {
       title: "接続済みのvaultとして扱いますか？",
@@ -233,7 +232,11 @@ export const ja = {
       confirmLabel: "反映する",
     },
     report: {
-      applied: (revision: number) => `反映しました（revision ${revision}）`,
+      applied: "反映しました",
+      counts: {
+        succeeded: (count: number) => `成功${count}件`,
+        failed: (count: number) => `失敗${count}件`,
+      },
       failed: "反映できませんでした",
       failedDetail: "公開中の記事はそのまま残っています。原因を直して、もう一度実行してください。",
       applying: "Nekote Blogで反映しています",
@@ -344,8 +347,9 @@ export const ja = {
   },
 
   reportModal: {
+    check: "確認してください",
     needAttention: (count: number) => `確認が必要な記事 ${count}件`,
-    messages: "サーバーからのエラー・警告",
+    messages: "確認事項",
     error: "エラー",
     warning: "警告",
     article: (title: string, path: string) => `${title}（${path}）`,

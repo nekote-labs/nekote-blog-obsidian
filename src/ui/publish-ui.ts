@@ -8,7 +8,7 @@ import { confirmWithModal } from "./confirm-modal";
 import { showReportModal } from "./report-modal";
 
 export interface DisposablePublishUi extends PublishUi {
-  /** 反映が終わったら必ず呼ぶ。出しっぱなしの進捗Noticeを閉じる */
+  /** 反映が終わったら必ず呼ぶ。残っている進捗Noticeを閉じる */
   dispose: () => void;
 }
 
@@ -37,7 +37,7 @@ export function createPublishUi(app: App): DisposablePublishUi {
     },
     progress: (message: string, detail?: string) => {
       const text = progressMessage(message, detail);
-      if (progressNotice === null) progressNotice = new Notice(text, 0);
+      if (progressNotice === null) progressNotice = new Notice(text, 3000);
       else progressNotice.setMessage(text);
     },
     notice: (message: string, durationMs?: number) => {

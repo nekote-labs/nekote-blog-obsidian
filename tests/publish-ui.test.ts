@@ -33,6 +33,7 @@ const state = vi.hoisted(() => {
     Fragment,
     notices: [] as Array<{
       initial: string | DocumentFragment;
+      duration: number | undefined;
       updates: Array<string | DocumentFragment>;
     }>,
   };
@@ -42,8 +43,8 @@ vi.mock("obsidian", () => {
   class Notice {
     private readonly record: (typeof state.notices)[number];
 
-    constructor(message: string | DocumentFragment) {
-      this.record = { initial: message, updates: [] };
+    constructor(message: string | DocumentFragment, duration?: number) {
+      this.record = { initial: message, duration, updates: [] };
       state.notices.push(this.record);
     }
 
@@ -74,6 +75,7 @@ describe("createPublishUi().progress()", () => {
     ui.progress("ファイルを送信しています…", "5 / 18");
 
     expect(state.notices).toHaveLength(1);
+    expect(state.notices[0]?.duration).toBe(3000);
     expect(state.notices[0]?.initial).toBeInstanceOf(state.Fragment);
     expect(state.notices[0]?.updates[0]).toBeInstanceOf(state.Fragment);
     const update = state.notices[0]?.updates[0];
@@ -89,5 +91,24 @@ describe("createPublishUi().progress()", () => {
     createPublishUi({} as App).progress("送信準備中");
 
     expect(state.notices[0]?.initial).toBe("Nekote Blog: 送信準備中");
+  });
+});
+
+describe("createPublishUi().report()", () => {
+  it("進捗とは別に完了通知を出す", () => {
+    const ui = createPublishUi({} as App);
+    ui.progress("反映しています…");
+    ui.report({
+      outcome: "applied",
+      headline: "反映しました",
+      paragraphs: [],
+      articles: [],
+      samples: [],
+    });
+
+    expect(state.notices.map((notice) => notice.initial)).toEqual([
+      "Nekote Blog: 反映しています…",
+      "Nekote Blog: 反映しました",
+    ]);
   });
 });
