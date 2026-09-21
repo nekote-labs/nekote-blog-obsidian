@@ -29,11 +29,16 @@ export function resolveLocale(language: string): LocaleCode {
 }
 
 /**
- * いまの表示言語の文言表。呼ぶたびに言語を解決するので、
- * Obsidianが言語変更で再読み込みを要求しなくても次の描画から切り替わる
+ * いまの表示言語。呼ぶたびに言語を解決するので、
+ * Obsidianが言語変更で再読み込みを要求しなくても次の描画・通信から切り替わる
  */
+export function getLocaleCode(): LocaleCode {
+  return resolveLocale(languageSource());
+}
+
+/** いまの表示言語の文言表 */
 export function getTranslations(): LocaleStrings {
-  return LOCALES[resolveLocale(languageSource())];
+  return LOCALES[getLocaleCode()];
 }
 
 function isLocaleCode(value: string): value is LocaleCode {

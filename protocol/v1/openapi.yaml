@@ -32,6 +32,8 @@ tags:
 
 paths:
   /device-authorizations:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     post:
       tags: [device-authorization]
       summary: 端末認可を開始する
@@ -64,6 +66,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /device-authorizations/token:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     post:
       tags: [device-authorization]
       summary: 承認状態をpollし、承認済みならトークンを受け取る
@@ -97,6 +101,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /connection:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     get:
       tags: [connection]
       summary: 接続情報を取得する
@@ -119,6 +125,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /connection/device:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     delete:
       tags: [connection]
       summary: 現在の端末credentialを自分で失効させる
@@ -131,6 +139,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /pushes:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     post:
       tags: [push]
       summary: begin（manifestだけを検証してPush世代を開始する）
@@ -175,6 +185,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /pushes/{pushId}/confirm:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     post:
       tags: [push]
       summary: 表示済みpreflightを確定してblob uploadを許可する
@@ -211,6 +223,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /pushes/{pushId}/blobs/{sha256}:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     put:
       tags: [push]
       summary: Markdownまたはアセットを1件stageする
@@ -254,6 +268,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /pushes/{pushId}/finalize:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     post:
       tags: [push]
       summary: 宣言blobの完備を確認し、Queueへ投入する
@@ -294,6 +310,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /pushes/{pushId}:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     get:
       tags: [push]
       summary: 完備確認・変換・公開状況をpollする
@@ -317,6 +335,8 @@ paths:
           $ref: "#/components/responses/Error"
 
   /manifest:
+    parameters:
+      - $ref: "#/components/parameters/UiLocale"
     get:
       tags: [push]
       summary: 現在の適用済み集合を取得する（409時の比較用）
@@ -346,6 +366,15 @@ components:
         Push APIの認証に使わない。**
 
   parameters:
+    UiLocale:
+      name: X-Nekote-UI-Locale
+      in: header
+      required: false
+      description: 表示言語。省略・不正な値は日本語。認証・検証結果は変わらない。
+      schema:
+        type: string
+        enum: [ja, en]
+        default: ja
     PushId:
       name: pushId
       in: path
@@ -374,7 +403,7 @@ components:
               $ref: "#/components/schemas/ErrorCode"
             message:
               type: string
-              description: 日本語の利用者向け文言（秘密・他ブログの情報は含めない）
+              description: 要求された言語の利用者向け文言。既定は日本語（秘密・他ブログの情報は含めない）
             details:
               type: object
               additionalProperties: true
@@ -932,6 +961,7 @@ components:
                 description: コンテンツルート相対path
               message:
                 type: string
+                description: 要求された言語の利用者向け文言。既定は日本語。旧形式の保存済み文言は原文のまま。
         expiresAt:
           type: string
           format: date-time

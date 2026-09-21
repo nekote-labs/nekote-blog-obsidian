@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getTranslations, resolveLocale, setLanguageSource } from "../src/i18n";
+import { getLocaleCode, getTranslations, resolveLocale, setLanguageSource } from "../src/i18n";
 import { en } from "../src/i18n/locales/en";
 import { ja } from "../src/i18n/locales/ja";
 
@@ -17,6 +17,17 @@ describe("resolveLocale()", () => {
     { label: "空文字", language: "", expected: "en" },
   ])("$language は $expected", ({ language, expected }) => {
     expect(resolveLocale(language)).toBe(expected);
+  });
+});
+
+describe("getLocaleCode()", () => {
+  it("呼ぶたびに注入元から解決し直す", () => {
+    let language = "ja-JP";
+    setLanguageSource(() => language);
+    expect(getLocaleCode()).toBe("ja");
+
+    language = "fr";
+    expect(getLocaleCode()).toBe("en");
   });
 });
 

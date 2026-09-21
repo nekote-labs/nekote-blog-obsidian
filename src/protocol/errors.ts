@@ -1,7 +1,7 @@
 // エラー形式とエラーコード（`protocol/v1/openapi.yaml`の`ErrorCode`と1対1）。
 //
-// `code`が安定した識別子で、プラグインはこれで分岐する。`message`はサーバーが返す
-// 利用者向けの日本語文言をそのまま出す（コードごとの既定文言はサーバー側にある）。
+// `code`が安定した識別子で、プラグインはこれで分岐する。`message`はサーバーが
+// `X-Nekote-UI-Locale`の言語で返す利用者向け文言で、そのまま出す（文言の辞書はサーバー側にある）。
 
 /** コードごとの既定HTTP status。契約テストがOpenAPIの`x-http-status`と突き合わせる */
 export const API_ERROR_STATUS = {
