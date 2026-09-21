@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { NekoteApiClient } from "../src/api/client";
 import { API_BASE_URLS, apiBaseUrl, dashboardUrl, isApiEnvironment } from "../src/api/endpoints";
 import { headerValue, type HttpFetch, type HttpRequest, type HttpResponse } from "../src/api/http";
+import { setLanguageSource } from "../src/i18n";
 import type {
   AppliedManifestResponse,
   BlobUploadResponse,
@@ -302,6 +303,43 @@ describe("NekoteApiClient: 認証", () => {
       expect(request.url).not.toContain(TOKEN);
       expect(bodyText(request)).not.toContain(TOKEN);
     }
+  });
+});
+
+describe("NekoteApiClient: 表示言語", () => {
+  afterEach(() => {
+    setLanguageSource(() => "en");
+  });
+
+  function localeOf(request: HttpRequest): string | undefined {
+    return headerValue(request.headers ?? {}, "X-Nekote-UI-Locale");
+  }
+
+  it("未認証経路を含む全リクエストがX-Nekote-UI-Localeに表示言語を載せる", async () => {
+    setLanguageSource(() => "ja-JP");
+    const { client, requests } = setup([
+      ok(deviceAuthorizationResponse),
+      ok({ status: "pending", interval: 5 }),
+      ...bearerCalls.map((call) => call.response),
+    ]);
+
+    await client.startDeviceAuthorization({ deviceName: "MacBook Pro", codeChallenge: "chal" });
+    await client.pollDeviceToken({ deviceCode: "dev", codeVerifier: "ver" });
+    for (const call of bearerCalls) await call.run(client);
+
+    expect(requests).toHaveLength(2 + bearerCalls.length);
+    expect(requests.map(localeOf)).toEqual(requests.map(() => "ja"));
+  });
+
+  it("表示言語の変更は次のリクエストから反映し、未対応の言語はenを送る", async () => {
+    const { client, requests } = setup([ok(connectionResponse), ok(connectionResponse)]);
+
+    setLanguageSource(() => "ja");
+    await client.getConnection();
+    setLanguageSource(() => "fr");
+    await client.getConnection();
+
+    expect(requests.map(localeOf)).toEqual(["ja", "en"]);
   });
 });
 

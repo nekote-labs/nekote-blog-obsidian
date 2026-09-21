@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 
+import type { LocaleCode } from "../src/i18n";
 import { computeProtocolContentHash } from "../src/protocol/content-hash";
 import {
   API_ERROR_STATUS,
@@ -52,7 +53,11 @@ interface ProtocolManifest {
 
 interface OpenApiDocument {
   info: { "x-protocol-version": number };
+  paths: Record<string, { parameters?: { $ref?: string }[] }>;
   components: {
+    parameters: {
+      UiLocale: { name: string; in: string; required: boolean; schema: { enum: string[] } };
+    };
     schemas: {
       ErrorCode: {
         enum: string[];
@@ -135,6 +140,25 @@ describe("エラーコード表の一致", () => {
     expect(isApiErrorCode(null)).toBe(false);
     expect(isApiErrorCode(401)).toBe(false);
     expect(isApiErrorCode({ code: "unauthorized" })).toBe(false);
+  });
+});
+
+describe("表示言語ヘッダーの一致", () => {
+  const uiLocale = openapi.components.parameters.UiLocale;
+
+  it("X-Nekote-UI-Localeを全pathの任意ヘッダーとして定義している", () => {
+    // 名前はapi-client.test.tsがクライアントの送信値として固定している
+    expect(uiLocale).toMatchObject({ name: "X-Nekote-UI-Locale", in: "header", required: false });
+    for (const [pathName, item] of Object.entries(openapi.paths)) {
+      expect([pathName, item.parameters]).toEqual([
+        pathName,
+        expect.arrayContaining([{ $ref: "#/components/parameters/UiLocale" }]),
+      ]);
+    }
+  });
+
+  it("受け付ける値がプラグインの言語コードと一致する", () => {
+    expect([...uiLocale.schema.enum].sort()).toEqual(["en", "ja"] satisfies LocaleCode[]);
   });
 });
 

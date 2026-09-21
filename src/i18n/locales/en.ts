@@ -330,7 +330,7 @@ export const en = {
     draftMustBeBoolean: "The frontmatter draft must be true or false.",
   },
 
-  /** プラグインが自分で作る通信エラー文（サーバーが返す`message`はそのまま出す） */
+  /** プラグインが自分で作る通信エラー文（サーバーが表示言語で返す`message`はそのまま出す） */
   api: {
     unreadableResponse: "Could not read the response from the server.",
     emptyResponse: "The server returned an empty response.",

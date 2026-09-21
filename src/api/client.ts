@@ -2,7 +2,7 @@
 //
 // トークンは`Authorization: Bearer`にだけ載せ、**URL・ログ・エラー文言へ出さない**。
 import { headerValue, type HttpFetch, type HttpRequest, type HttpResponse } from "./http";
-import { getTranslations } from "../i18n";
+import { getLocaleCode, getTranslations } from "../i18n";
 import { NekoteApiError, networkError, parseApiErrorBody } from "../protocol/errors";
 import { PROTOCOL_MAJOR } from "../protocol/limits";
 import { isSupportedProtocolMajor } from "../protocol/version";
@@ -225,7 +225,11 @@ export class NekoteApiClient {
     body?: ArrayBuffer;
     contentType?: string;
   }): Promise<HttpResponse> {
-    const headers: Record<string, string> = { Accept: "application/json" };
+    // サーバーはエラー応答とstatusの`message`をこの言語で返す（古いサーバーは無視して日本語）
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "X-Nekote-UI-Locale": getLocaleCode(),
+    };
     if (input.auth === "bearer") {
       const token = this.options.getToken();
       if (token === null || token === "") {

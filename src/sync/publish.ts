@@ -675,7 +675,7 @@ function reportFailure(deps: PublishDeps, error: unknown): void {
   deps.ui.notice(t.unexpectedError, 10000);
 }
 
-/** サーバーの`message`は日本語固定なので、分岐できるコードはプラグイン側の文言で出す */
+/** 分岐できるコードは、プラグインの操作名で次の行動を案内できるようプラグイン側の文言で出す */
 function describeApiFailure(error: NekoteApiError): string {
   const t = getTranslations().publish;
   if (error.code === "push_in_progress") return t.pushInProgress;
