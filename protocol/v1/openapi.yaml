@@ -7,7 +7,7 @@
 #
 # 実装状況: 端末認可（/device-authorizations）・接続情報（/connection）・Push世代の
 # staging（/pushes系と/manifest）・変換/公開の適用経路（Queue consumer）まで
-# サーバー実装済み（stagingデプロイ済み・本番未デプロイ。進捗は.plan/overview.md）。
+# サーバー実装済み（staging・本番ともデプロイ済み。進捗は.plan/plan-obsidian-source.md）。
 openapi: 3.1.0
 info:
   title: Nekote Blog Obsidian Push API
