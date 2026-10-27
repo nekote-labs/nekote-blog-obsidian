@@ -61,7 +61,8 @@ Connecting opens `dash.nekote.blog` in your browser so you can approve the devic
 ### What is sent
 
 - Markdown under `posts/` and `pages/` inside your content root, with Obsidian-flavored syntax
-  (wikilinks, embeds, callouts) converted to standard Markdown. Frontmatter is sent as written.
+  (wikilinks, embeds, callouts, colored highlights) converted to standard Markdown. Frontmatter is
+  sent as written.
 - Assets actually referenced by that Markdown, or by its `thumbnail` / `cover` properties.
 - For each of those files: its path relative to the content root (assets: relative to the vault
   root), a SHA-256 hash, its size, and which assets and published notes it links to.
