@@ -18,6 +18,7 @@ describe("applyFrontmatterTemplate()", () => {
       tags: [],
       category: "",
       slug: "",
+      description: "",
       emoji: "",
       thumbnail: "",
       cover: "",

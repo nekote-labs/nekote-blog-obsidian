@@ -12,6 +12,7 @@ const TEMPLATE_KEYS = [
   "tags",
   "category",
   "slug",
+  "description",
   "emoji",
   "thumbnail",
   "cover",
