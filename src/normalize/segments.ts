@@ -132,7 +132,7 @@ export function joinBodyLines(lines: readonly string[]): string {
 /** 段落ごとにインラインコードを探し、各行の`inlineCode`へ入れる */
 function markInlineCode(lines: readonly BodyLine[]): void {
   let paragraph: BodyLine[] = [];
-  let previous: { line: BodyLine; content: string } | null = null;
+  let previous: BodyLine | null = null;
   /** 表の中なら、その表を含む引用の階層数 */
   let tableDepth: number | null = null;
   const flush = (): void => {
@@ -157,7 +157,7 @@ function markInlineCode(lines: readonly BodyLine[]): void {
     const singleLine = SINGLE_LINE_BLOCK.test(content);
     const blockStart = BLOCK_START.test(content);
     const header = previous;
-    previous = { line, content };
+    previous = line;
 
     if (tableDepth !== null) {
       if (
@@ -172,15 +172,14 @@ function markInlineCode(lines: readonly BodyLine[]): void {
 
     if (
       header !== null &&
-      header.line.quoteDepth === line.quoteDepth &&
-      header.content.includes("|") &&
+      header.quoteDepth === line.quoteDepth &&
       content.includes("|") &&
       TABLE_DELIMITER.test(content)
     ) {
       // 見出し行は段落の最後の行として読み始めているので、段落から外して1行で読み直す
-      if (paragraph.at(-1) === header.line) {
+      if (paragraph.at(-1) === header) {
         paragraph.pop();
-        pushAlone(header.line);
+        pushAlone(header);
       }
       pushAlone(line);
       tableDepth = line.quoteDepth;
