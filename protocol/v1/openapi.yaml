@@ -1,13 +1,4 @@
-# Obsidian Push同期API v1の機械可読な正本。
-#
-# 仕様の正本はdocs/spec/obsidian.md、数値の正本はdocs/spec/limits.md。
-# 公開プラグイン（nekote-labs/nekote-blog-obsidian）はこのファイルと
-# fixtures/をprotocol/v1/へコピーしてcommitし、runtimeでこのリポジトリへ依存しない。
-# 内容を変えたら`nr gen:obsidian-protocol-hash`でprotocol.jsonのhashを更新する。
-#
-# 実装状況: 端末認可（/device-authorizations）・接続情報（/connection）・Push世代の
-# staging（/pushes系と/manifest）・変換/公開の適用経路（Queue consumer）まで
-# サーバー実装済み（staging・本番ともデプロイ済み。進捗は.plan/plan-obsidian-source.md）。
+# Obsidian Push同期API v1の機械可読な正本。説明と変更手順は同じディレクトリのREADME.md。
 openapi: 3.1.0
 info:
   title: Nekote Blog Obsidian Push API

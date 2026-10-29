@@ -1,6 +1,7 @@
 // 契約に現れる定数のうち、プラグインが判断に使うもの。
-// 正本はサーバー側の`docs/spec/limits.md`と`protocol/v1/openapi.yaml`で、
-// ここはそのコピー。値を変えるときは契約の再vendorとセットで行う。
+// `PROTOCOL_MAJOR`と「ファイルとmanifestの上限」はサーバー側のコピー（上限がどの定数かは
+// サーバー側の`docs/spec/limits.md`）で、値を変えるときは契約の再vendorとセットで行う。
+// `DEVICE_POLL_*`と「ローカル早期確認のしきい値」はこのファイルが定義元。
 
 /** 現在のprotocol major。未対応majorはサーバーが426で拒否する */
 export const PROTOCOL_MAJOR = 1;

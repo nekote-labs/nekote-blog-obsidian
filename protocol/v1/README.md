@@ -15,7 +15,7 @@ runtimeで正本リポジトリやnpm packageへ依存しないために、こ�
 現在の値:
 
 - protocol major: `1`
-- `contentHash`: `1ff18789f7760d5560da099a909febcc5e3afbb8f29a639770b3cc31914fe342`
+- `contentHash`: `903dc72c324afb65b4925625e5e6dbf26afc385ca026e79f93e7336e80ddb46d`
 
 ## 編集しないこと
 
