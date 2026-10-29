@@ -107,7 +107,7 @@ function replaceOutsideInlineCode(line: string, replace: (text: string) => strin
 }
 
 /** ちょうど`length`本のバックティックの並びが始まる位置。無ければ-1 */
-function findClosingBackticks(line: string, from: number, length: number): number {
+export function findClosingBackticks(line: string, from: number, length: number): number {
   let index = from;
   while (index < line.length) {
     const next = line.indexOf("`", index);

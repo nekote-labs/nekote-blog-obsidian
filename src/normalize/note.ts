@@ -17,6 +17,7 @@ import { baseNameOf, directoryOf, isCanonicalPath, resolveRelativePath } from ".
 import { classifyAssetPath } from "./assets";
 import { normalizeCallouts } from "./callout";
 import type { NormalizeContext } from "./context";
+import { normalizeHighlights } from "./highlight";
 import { collectReferences } from "./references";
 import { classifyReferenceUrl, decodeReferencePath, isHttpsUrl } from "./url";
 import { normalizeWikilinks } from "./wikilink";
@@ -77,7 +78,10 @@ export function normalizeNote(input: {
     };
   }
 
-  const normalizedBody = normalizeWikilinks(normalizeCallouts(split.body, issues), context, issues);
+  // ハイライトはwikilinkの後に直す。先に`:marker[`で囲むと`[[[…]]]`になり、wikilinkとして読めない
+  const normalizedBody = normalizeHighlights(
+    normalizeWikilinks(normalizeCallouts(split.body, issues), context, issues),
+  );
   const references = collectReferences(normalizedBody, context, issues);
 
   const frontmatterAssets = [

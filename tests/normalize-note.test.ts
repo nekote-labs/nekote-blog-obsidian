@@ -47,6 +47,12 @@ describe("normalizeNote(): frontmatterと本文", () => {
     );
   });
 
+  it("wikilinkを直してから、色付きハイライトをマーカーにする", () => {
+    const run = setup();
+
+    expect(run("==🔴[[#まとめ]]==").markdown).toBe(":marker[[まとめ](#まとめ)]{red}");
+  });
+
   it("titleはfrontmatterを優先する", () => {
     const run = setup();
 
