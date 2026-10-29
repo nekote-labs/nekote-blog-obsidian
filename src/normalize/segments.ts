@@ -6,7 +6,9 @@
 // 同じく、引用の中のフェンスと、段落の中で行をまたぐインラインコードもコードとして扱う。
 //
 // 段落の切れ目は空行と行頭の記号（見出し・リスト項目・表の行など）で近似する。迷う行は
-// 段落の切れ目とみなし、インラインコードを行をまたいでつながない。
+// 段落の切れ目とみなし、インラインコードを行をまたいでつながない。表は行頭の`|`を
+// 省略できるので、区切り行（`--- | ---`）を見つけたら、その直前の行から表が終わるまでを
+// 1行ずつ読む（見出しとの列数の一致は確かめない）。
 //
 // 対象外（既知の割り切り）: 4スペースのインデントコードブロックとHTMLブロックの
 // 中身は書き換え対象に入る。前者は行の文脈（直前の空行・リストの内側）まで見ないと
@@ -47,6 +49,9 @@ const SINGLE_LINE_BLOCK = /^(?:#{1,6}(?:\s|$)|\||:{2,}|([-*_])(?:[ \t]*\1){2,}\s
 
 /** 前の段落を区切って始まるブロック: リスト項目・HTML */
 const BLOCK_START = /^(?:(?:[-+*]|\d{1,9}[.)])(?:\s|$)|<[A-Za-z/!?])/;
+
+/** 表の区切り行。`|`を含まない`---`は区切り線・setext見出しなので、別に`|`の有無を見る */
+const TABLE_DELIMITER = /^\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?\s*$/;
 
 interface Fence {
   character: "`" | "~";
@@ -127,24 +132,62 @@ export function joinBodyLines(lines: readonly string[]): string {
 /** 段落ごとにインラインコードを探し、各行の`inlineCode`へ入れる */
 function markInlineCode(lines: readonly BodyLine[]): void {
   let paragraph: BodyLine[] = [];
+  let previous: { line: BodyLine; content: string } | null = null;
+  /** 表の中なら、その表を含む引用の階層数 */
+  let tableDepth: number | null = null;
   const flush = (): void => {
     if (paragraph.length > 0) assignInlineCode(paragraph);
     paragraph = [];
+  };
+  const pushAlone = (line: BodyLine): void => {
+    flush();
+    paragraph.push(line);
+    flush();
   };
 
   for (const line of lines) {
     const content = line.fenced ? "" : readQuote(line.text).content.trimStart();
     if (content.trim() === "") {
       flush();
+      previous = null;
+      tableDepth = null;
       continue;
     }
 
     const singleLine = SINGLE_LINE_BLOCK.test(content);
+    const blockStart = BLOCK_START.test(content);
+    const header = previous;
+    previous = { line, content };
+
+    if (tableDepth !== null) {
+      if (
+        line.quoteDepth === tableDepth &&
+        (content.startsWith("|") || !(singleLine || blockStart))
+      ) {
+        pushAlone(line);
+        continue;
+      }
+      tableDepth = null;
+    }
+
     if (
-      singleLine ||
-      BLOCK_START.test(content) ||
-      line.quoteDepth !== paragraph.at(-1)?.quoteDepth
+      header !== null &&
+      header.line.quoteDepth === line.quoteDepth &&
+      header.content.includes("|") &&
+      content.includes("|") &&
+      TABLE_DELIMITER.test(content)
     ) {
+      // 見出し行は段落の最後の行として読み始めているので、段落から外して1行で読み直す
+      if (paragraph.at(-1) === header.line) {
+        paragraph.pop();
+        pushAlone(header.line);
+      }
+      pushAlone(line);
+      tableDepth = line.quoteDepth;
+      continue;
+    }
+
+    if (singleLine || blockStart || line.quoteDepth !== paragraph.at(-1)?.quoteDepth) {
       flush();
     }
     paragraph.push(line);

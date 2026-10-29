@@ -156,6 +156,7 @@ describe("replaceOutsideCode()", () => {
     { label: "リスト項目", body: "- `a\n- [[b]]`" },
     { label: "見出し", body: "# `a\n[[b]]`" },
     { label: "表の行", body: "| `a |\n| [[b]]` |" },
+    { label: "行頭の|を省略した表の行", body: "| x | y |\n--- | ---\n`a | 1\n[[b]]` | 2" },
     { label: "引用の始まり", body: "`a\n> [[b]]`" },
   ])("$labelをまたいではインラインコードにならない", ({ body }) => {
     expect(replaceWikilinks(body).result).toBe(body.replace("[[b]]", "X"));

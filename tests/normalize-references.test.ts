@@ -160,6 +160,14 @@ describe("collectReferences(): 拾う記法", () => {
     expect(run(body.join("\n")).assetPaths).toEqual([]);
     expect(issues()).toEqual([]);
   });
+
+  it("行頭の|を省略した表では、別の行のバックティック同士をコードとしてつながない", () => {
+    const { run } = setup({ files: ["blog/posts/cat.png"] });
+
+    const body = ["記号 | 画像", "--- | ---", "a ` | ![猫](./cat.png)", "b ` | 説明"];
+
+    expect(run(body.join("\n")).assetPaths).toEqual(["blog/posts/cat.png"]);
+  });
 });
 
 describe("collectReferences(): 記事へのリンク", () => {
