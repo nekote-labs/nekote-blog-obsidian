@@ -151,6 +151,15 @@ describe("collectReferences(): 拾う記法", () => {
     expect(run(body).assetPaths).toEqual([]);
     expect(issues()).toEqual([]);
   });
+
+  it("引用の中のコードブロックと、改行をまたぐインラインコードの中は拾わない", () => {
+    const { run, issues } = setup();
+
+    const body = ["> ```md", "> ![猫](./cat.png)", "> ```", "", "`a", "![犬](./dog.png)", "b`"];
+
+    expect(run(body.join("\n")).assetPaths).toEqual([]);
+    expect(issues()).toEqual([]);
+  });
 });
 
 describe("collectReferences(): 記事へのリンク", () => {
