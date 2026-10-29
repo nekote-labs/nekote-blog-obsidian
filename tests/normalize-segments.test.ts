@@ -77,6 +77,14 @@ describe("splitBodyLines(): フェンス付きコードブロック", () => {
   it("フェンスが無ければすべてfalse", () => {
     expect(fencedFlags("a\nb\nc")).toEqual([false, false, false]);
   });
+
+  it("引用の中のフェンスも認識する", () => {
+    expect(fencedFlags("> a\n> ```\n> code\n> ```\n> b")).toEqual([false, true, true, true, false]);
+  });
+
+  it("引用が終わると、その中のコードブロックも閉じる", () => {
+    expect(fencedFlags("> ```\n> code\nb")).toEqual([true, true, false]);
+  });
 });
 
 describe("joinBodyLines()", () => {
@@ -130,6 +138,28 @@ describe("replaceOutsideCode()", () => {
 
     expect(result).toBe("x `X y");
     expect(fragments).toEqual(["x `[[a]] y"]);
+  });
+
+  it.each([
+    { label: "段落", body: "`a\n[[b]]\nc` [[d]]", expected: "`a\n[[b]]\nc` X" },
+    {
+      label: "引用の中の段落",
+      body: "> `a\n> [[b]]\n> c` [[d]]",
+      expected: "> `a\n> [[b]]\n> c` X",
+    },
+  ])("改行をまたぐインラインコードの中身は置換されない（$label）", ({ body, expected }) => {
+    expect(replaceWikilinks(body).result).toBe(expected);
+  });
+
+  it.each([
+    { label: "空行", body: "`a\n\n[[b]]`" },
+    { label: "リスト項目", body: "- `a\n- [[b]]`" },
+    { label: "見出し", body: "# `a\n[[b]]`" },
+    { label: "表の行", body: "| `a |\n| [[b]]` |" },
+    { label: "行頭の|を省略した表の行", body: "| x | y |\n--- | ---\n`a | 1\n[[b]]` | 2" },
+    { label: "引用の始まり", body: "`a\n> [[b]]`" },
+  ])("$labelをまたいではインラインコードにならない", ({ body }) => {
+    expect(replaceWikilinks(body).result).toBe(body.replace("[[b]]", "X"));
   });
 
   it("置換関数はコード以外の断片だけを受け取る", () => {

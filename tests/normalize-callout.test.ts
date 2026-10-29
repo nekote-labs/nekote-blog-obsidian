@@ -116,6 +116,13 @@ describe("normalizeCallouts(): 本文", () => {
     );
   });
 
+  it("本文のフェンス付きコードブロックは中身を書き換えずに移す", () => {
+    const { text, warnings } = run(md("> [!note] 例", "> ```md", "> > [!tip] 中", "> ```"));
+
+    expect(text).toBe(md(":::note[例]", "```md", "> [!tip] 中", "```", ":::"));
+    expect(warnings).toEqual([]);
+  });
+
   it("本文に:::があればフェンスを1本長くする", () => {
     expect(run(md("> [!note] タイトル", "> :::note[中]", "> 本文", "> :::")).text).toBe(
       md("::::note[タイトル]", ":::note[中]", "本文", ":::", "::::"),

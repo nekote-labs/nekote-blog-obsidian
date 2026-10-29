@@ -151,6 +151,27 @@ describe("collectReferences(): 拾う記法", () => {
     expect(run(body).assetPaths).toEqual([]);
     expect(issues()).toEqual([]);
   });
+
+  it("引用の中のコードブロックと、改行をまたぐインラインコードの中は拾わない", () => {
+    const { run, issues } = setup();
+
+    const body = ["> ```md", "> ![猫](./cat.png)", "> ```", "", "`a", "![犬](./dog.png)", "b`"];
+
+    expect(run(body.join("\n")).assetPaths).toEqual([]);
+    expect(issues()).toEqual([]);
+  });
+
+  it.each([
+    { label: "2列", body: ["記号 | 画像", "--- | ---", "a ` | ![猫](./cat.png)", "b ` | 説明"] },
+    { label: "見出しに|が無い1列", body: ["画像", "| --- |", "a ` ![猫](./cat.png)", "b `"] },
+  ])(
+    "行頭の|を省略した表の行は、別の行のバックティック同士をコードとしてつながない（$label）",
+    ({ body }) => {
+      const { run } = setup({ files: ["blog/posts/cat.png"] });
+
+      expect(run(body.join("\n")).assetPaths).toEqual(["blog/posts/cat.png"]);
+    },
+  );
 });
 
 describe("collectReferences(): 記事へのリンク", () => {

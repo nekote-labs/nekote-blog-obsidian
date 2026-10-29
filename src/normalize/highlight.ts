@@ -6,7 +6,7 @@
 // 色は中身の先頭1文字で決まる。
 //
 // 対象外（既知の割り切り）: 行をまたぐハイライトは変換しない。
-import { findClosingBackticks, joinBodyLines, splitBodyLines } from "./segments";
+import { ASCII_PUNCTUATION, joinBodyLines, splitBodyLines, type BodyLine } from "./segments";
 
 /** 先頭の絵文字 → Nekoteの色名。Obsidianは丸と四角のどちらでも同じ色にする */
 const HIGHLIGHT_COLORS = new Map<string, string>([
@@ -24,40 +24,39 @@ const HIGHLIGHT_COLORS = new Map<string, string>([
   ["🟪", "purple"],
 ]);
 
-/** バックスラッシュでエスケープできる文字（CommonMarkのASCII句読点） */
-const ASCII_PUNCTUATION = /^[!-/:-@[-`{-~]$/;
-
 const WHITESPACE = /^\s$/;
 
 /** Obsidianの色付きハイライトをNekoteのマーカーへ正規化する */
 export function normalizeHighlights(body: string): string {
   return joinBodyLines(
-    splitBodyLines(body).map((line) => (line.fenced ? line.text : normalizeLine(line.text))),
+    splitBodyLines(body).map((line) => (line.fenced ? line.text : normalizeLine(line))),
   );
 }
 
-function normalizeLine(line: string): string {
+function normalizeLine({ text: line, inlineCode }: BodyLine): string {
   const lastClose = lastCloseIndex(line);
+  /** インラインコードの開始位置 → 終わり */
+  const codeEnds = new Map(inlineCode.map((code) => [code.start, code.end]));
   let result = "";
   let index = 0;
   /** `result`の末尾の文字がバックスラッシュでエスケープされているか */
   let escapedTail = false;
 
   while (index < line.length) {
+    const codeEnd = codeEnds.get(index);
+    if (codeEnd !== undefined) {
+      result += line.slice(index, codeEnd);
+      index = codeEnd;
+      escapedTail = false;
+      continue;
+    }
+
     const char = line[index] as string;
 
     if (char === "\\" && ASCII_PUNCTUATION.test(line[index + 1] ?? "")) {
       result += line.slice(index, index + 2);
       index += 2;
       escapedTail = true;
-      continue;
-    }
-
-    if (char === "`") {
-      const end = codeSpanEnd(line, index);
-      result += line.slice(index, end);
-      index = end;
-      escapedTail = false;
       continue;
     }
 
@@ -83,14 +82,6 @@ function normalizeLine(line: string): string {
   }
 
   return result;
-}
-
-/** `index`から始まるバックティックの並びの後ろ。閉じればコードの終わり、閉じなければ並びの終わり */
-function codeSpanEnd(line: string, index: number): number {
-  let length = 0;
-  while (line[index + length] === "`") length += 1;
-  const close = findClosingBackticks(line, index + length, length);
-  return close === -1 ? index + length : close + length;
 }
 
 /**

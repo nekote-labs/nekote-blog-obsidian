@@ -22,7 +22,7 @@ import {
 } from "../vault/paths";
 import { classifyAssetPath, isMarkdownPath, isTransferableAsset } from "./assets";
 import type { NormalizeContext } from "./context";
-import { joinBodyLines, replaceOutsideCode, splitBodyLines } from "./segments";
+import { replaceInsideCode } from "./segments";
 import { classifyReferenceUrl, decodeReferencePath } from "./url";
 
 export interface CollectedReferences {
@@ -51,12 +51,6 @@ const HTML_ATTRIBUTE = /(?:^|[\s"'])(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([
 /** サーバーがHASTから集める leaf directive。`url`だけがアセット参照 */
 const DIRECTIVE_URL =
   /::(?:audio|file)(?:\[[^\]]*\])?\{[^}]*?\burl\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
-
-/**
- * 「コードの外」を示す目印。コードの中身にも空白はあり得るが、その位置は潰しても
- * 残しても空白なので結果は変わらない
- */
-const OUTSIDE_CODE_MARK = " ";
 
 interface FoundDestination {
   /** 行頭からの位置。出現順を決めるためだけに使う */
@@ -100,30 +94,9 @@ export function collectReferences(
   return { assetPaths: [...assetPaths], linkedArticlePaths: [...linkedArticlePaths] };
 }
 
-/**
- * インラインコードの中身を同じ長さの空白へ潰す。
- *
- * `replaceOutsideCode()`はコード**以外**を置換するので、いったんコード以外を目印で潰し、
- * 目印が残った位置をコード以外として組み直す（バックティックの走査を作り直さないため）。
- * 長さを保つので、行のどこで見つけた参照かで出現順を決められる
- */
-function maskInlineCode(line: string): string {
-  if (!line.includes("`")) return line;
-
-  const marked = replaceOutsideCode(line, (text) => OUTSIDE_CODE_MARK.repeat(text.length));
-  return line
-    .split("")
-    .map((character, index) => (marked[index] === OUTSIDE_CODE_MARK ? character : " "))
-    .join("");
-}
-
 /** フェンスとインラインコードを同じ長さの空白へ潰す（出現位置を保つ） */
 function maskCode(body: string): string {
-  return joinBodyLines(
-    splitBodyLines(body).map((line) =>
-      line.fenced ? OUTSIDE_CODE_MARK.repeat(line.text.length) : maskInlineCode(line.text),
-    ),
-  );
+  return replaceInsideCode(body, (code) => " ".repeat(code.length));
 }
 
 function quotedOrBare(match: RegExpMatchArray): string {

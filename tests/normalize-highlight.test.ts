@@ -60,9 +60,16 @@ describe("normalizeHighlights(): 変えないもの", () => {
     expect(normalizeHighlights(body)).toBe(body);
   });
 
-  it("コードの中はそのまま", () => {
-    const body = md("`==🔴a==`", "```", "==🔴a==", "```");
-
+  it.each([
+    ["インラインコード・フェンス", md("`==🔴a==`", "```", "==🔴a==", "```")],
+    ["引用の中のフェンス", md("> ```md", "> ==🔴重要==", "> ```")],
+  ])("コードの中はそのまま（%s）", (_name, body) => {
     expect(normalizeHighlights(body)).toBe(body);
+  });
+
+  it("改行をまたぐインラインコードの中はそのままで、閉じた後ろは変換する", () => {
+    expect(normalizeHighlights(md("`code", "==🔴重要==", "code` ==🔴後=="))).toBe(
+      md("`code", "==🔴重要==", "code` :marker[後]{red}"),
+    );
   });
 });

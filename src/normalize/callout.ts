@@ -7,7 +7,7 @@
 // 行頭の空白が4個以上の`>`はインデントコードブロックと区別できないため対象外にする。
 import type { IssueCollector } from "../content/issues";
 import { getTranslations } from "../i18n";
-import { joinBodyLines, splitBodyLines } from "./segments";
+import { joinBodyLines, QUOTE_LINE, splitBodyLines, type BodyLine } from "./segments";
 import { containerFenceFor, escapeBracketLabel } from "./text";
 
 type NekoteCalloutType = "note" | "info" | "check" | "tip" | "help" | "warning" | "alert";
@@ -43,11 +43,6 @@ const CALLOUT_TYPES = new Map<string, NekoteCalloutType>([
   ["bug", "alert"],
 ]);
 
-/**
- * 引用1階層分。先頭の空白は0〜3個まで、`>`の直後の空白は1つだけ落とす。
- * 行末の`\r`（CRLFの本文）は`.`に含まれないので、行の中身は`[\s\S]`で取る
- */
-const QUOTE_LINE = /^( {0,3})>[ \t]?([\s\S]*)$/;
 const CALLOUT_HEAD = /^\[!([^\]\n]*)\]([+-]?)([\s\S]*)$/;
 
 interface CalloutHead {
@@ -66,17 +61,17 @@ export function normalizeCallouts(body: string, issues: IssueCollector): string 
   while (index < lines.length) {
     const line = lines[index];
     if (line === undefined) break;
-    if (!isQuoteLine(line.fenced, line.text)) {
+    if (line.quoteDepth === 0) {
       result.push(line.text);
       index += 1;
       continue;
     }
 
-    const block: string[] = [];
+    const block: BodyLine[] = [];
     while (index < lines.length) {
       const current = lines[index];
-      if (current === undefined || !isQuoteLine(current.fenced, current.text)) break;
-      block.push(current.text);
+      if (current === undefined || current.quoteDepth === 0) break;
+      block.push(current);
       index += 1;
     }
 
@@ -86,34 +81,32 @@ export function normalizeCallouts(body: string, issues: IssueCollector): string 
   return joinBodyLines(result);
 }
 
-function isQuoteLine(fenced: boolean, text: string): boolean {
-  return !fenced && QUOTE_LINE.test(text);
-}
-
 /** blockquote 1ブロック分を変換して`result`へ足す */
 function appendBlock(
   result: string[],
-  block: readonly string[],
+  block: readonly BodyLine[],
   nextText: string | undefined,
   issues: IssueCollector,
 ): void {
   const first = block[0];
   if (first === undefined) return;
 
-  const quote = QUOTE_LINE.exec(first);
+  const quote = QUOTE_LINE.exec(first.text);
   const head = quote === null ? null : parseCalloutHead(quote[2] ?? "");
   if (quote === null || head === null) {
-    for (const line of block) result.push(rewriteNestedCallout(line, issues));
+    for (const line of block) result.push(rewriteNestedCallout(line.text, line.fenced, issues));
     return;
   }
 
   const indent = quote[1] ?? "";
-  const eol = first.endsWith("\r") ? "\r" : "";
+  const eol = first.text.endsWith("\r") ? "\r" : "";
   const label = buildLabel(titleOf(head));
   const type = resolveType(head.identifier, issues);
 
   const content = dropTrailingBlank(
-    block.slice(1).map((line) => rewriteNestedCallout(stripOneQuote(line), issues)),
+    block
+      .slice(1)
+      .map((line) => rewriteNestedCallout(stripOneQuote(line.text), line.fenced, issues)),
   );
   const fence = containerFenceFor(joinBodyLines(content));
 
@@ -159,8 +152,12 @@ function resolveType(identifier: string, issues: IssueCollector): NekoteCalloutT
   return "note";
 }
 
-/** 深い階層に残ったCallout記法。入れ子は作れないので見出しをタイトルへ置き換えて引用のまま残す */
-function rewriteNestedCallout(line: string, issues: IssueCollector): string {
+/**
+ * 深い階層に残ったCallout記法。入れ子は作れないので見出しをタイトルへ置き換えて引用のまま残す。
+ * `fenced`の行はコードの中身なので書き換えない
+ */
+function rewriteNestedCallout(line: string, fenced: boolean, issues: IssueCollector): string {
+  if (fenced) return line;
   const eol = line.endsWith("\r") ? "\r" : "";
   const { markers, rest } = splitQuoteMarkers(eol === "" ? line : line.slice(0, -1));
   if (markers === "") return line;
