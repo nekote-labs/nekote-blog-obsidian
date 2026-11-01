@@ -23,9 +23,14 @@ Obsidianアプリからの実機確認はstagingで行う。プラグイン設�
 
 ## 検証用vault
 
-`/Users/ryo/Library/Mobile Documents/iCloud~md~obsidian/Documents/Nekote`
+`/Users/ryo/Library/Mobile Documents/iCloud~md~obsidian/Documents/`の下に、接続先ごとに1つずつある。
 
-ノートの編集も実機確認もこのvaultで行う。iCloud同期下にあるためパスにスペースが入る。**シェルで渡すときは必ずクォートする**。
+- `Nekote-staging`: staging接続。ノートの編集も実機確認も、通常はこちらで行う
+- `Nekote-production`: 本番接続
+
+検証記事は両方にほぼ同じものがある。記事を直すときは両方を揃える。
+
+iCloud同期下にあるためパスにスペースが入る。**シェルで渡すときは必ずクォートする**。
 
 ## vaultへの反映（`OBSIDIAN_PLUGIN_DIR`）
 
