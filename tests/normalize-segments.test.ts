@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { joinBodyLines, replaceOutsideCode, splitBodyLines } from "../src/normalize/segments";
+import {
+  joinBodyLines,
+  replaceOutsideCodeAndHtmlComments,
+  splitBodyLines,
+} from "../src/normalize/segments";
 
 /** 行ごとの`fenced`だけを取り出す */
 function fencedFlags(body: string): boolean[] {
@@ -9,7 +13,7 @@ function fencedFlags(body: string): boolean[] {
 /** `replace`へ渡った断片を記録しつつ、`[[…]]`をXへ置き換える */
 function replaceWikilinks(body: string): { result: string; fragments: string[] } {
   const fragments: string[] = [];
-  const result = replaceOutsideCode(body, (text) => {
+  const result = replaceOutsideCodeAndHtmlComments(body, (text) => {
     fragments.push(text);
     return text.replace(/\[\[[^\]]*\]\]/g, "X");
   });
@@ -105,7 +109,7 @@ describe("joinBodyLines()", () => {
   });
 });
 
-describe("replaceOutsideCode()", () => {
+describe("replaceOutsideCodeAndHtmlComments()", () => {
   it("コードでない部分は置換される", () => {
     expect(replaceWikilinks("[[a]] と [[b]]").result).toBe("X と X");
   });
@@ -171,6 +175,41 @@ describe("replaceOutsideCode()", () => {
   it("置換しなければ本文は元のまま", () => {
     const body = "a `code` b\n```ts\nfenced\n```\nc\r\nd";
 
-    expect(replaceOutsideCode(body, (text) => text)).toBe(body);
+    expect(replaceOutsideCodeAndHtmlComments(body, (text) => text)).toBe(body);
+  });
+});
+
+describe("replaceOutsideCodeAndHtmlComments(): HTMLコメント", () => {
+  it.each([
+    { label: "行内", body: "[[a]] <!-- [[b]] --> [[c]]", expected: "X <!-- [[b]] --> X" },
+    {
+      label: "空行をまたぐHTMLブロック",
+      body: "<!--\n[[a]]\n\n[[b]]\n-->\n[[c]]",
+      expected: "<!--\n[[a]]\n\n[[b]]\n-->\nX",
+    },
+    {
+      label: "リスト項目のHTMLブロック",
+      body: "- <!--\n  [[a]]\n  -->",
+      expected: "- <!--\n  [[a]]\n  -->",
+    },
+    {
+      label: "引用の中",
+      body: "> <!--\n> [[a]]\n> -->\n> [[b]]",
+      expected: "> <!--\n> [[a]]\n> -->\n> X",
+    },
+    { label: "中のフェンス", body: "<!--\n```\n-->\n[[a]]", expected: "<!--\n```\n-->\nX" },
+  ])("中は置換されない（$label）", ({ body, expected }) => {
+    expect(replaceWikilinks(body).result).toBe(expected);
+  });
+
+  it.each([
+    {
+      label: "段落の中で閉じない<!--",
+      body: "x <!-- [[a]]\n\n[[b]] -->",
+      expected: "x <!-- X\n\nX -->",
+    },
+    { label: "コードの中の<!--", body: "`<!--` [[a]] `-->`", expected: "`<!--` X `-->`" },
+  ])("$labelはコメントを始めない", ({ body, expected }) => {
+    expect(replaceWikilinks(body).result).toBe(expected);
   });
 });

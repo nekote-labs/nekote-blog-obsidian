@@ -16,6 +16,7 @@ import { MAX_ARTICLE_ASSET_PATHS } from "../protocol/limits";
 import { baseNameOf, directoryOf, isCanonicalPath, resolveRelativePath } from "../vault/paths";
 import { classifyAssetPath } from "./assets";
 import { normalizeCallouts } from "./callout";
+import { removeObsidianComments } from "./comment";
 import type { NormalizeContext } from "./context";
 import { normalizeHighlights } from "./highlight";
 import { collectReferences } from "./references";
@@ -78,9 +79,14 @@ export function normalizeNote(input: {
     };
   }
 
-  // ハイライトはwikilinkの後に直す。先に`:marker[`で囲むと`[[[…]]]`になり、wikilinkとして読めない
+  // Obsidianのコメントは最初に取り除き、中の記法を変換も指摘もしない。ハイライトはwikilinkの
+  // 後に直す。先に`:marker[`で囲むと`[[[…]]]`になり、wikilinkとして読めない
   const normalizedBody = normalizeHighlights(
-    normalizeWikilinks(normalizeCallouts(split.body, issues), context, issues),
+    normalizeWikilinks(
+      normalizeCallouts(removeObsidianComments(split.body), issues),
+      context,
+      issues,
+    ),
   );
   const references = collectReferences(normalizedBody, context, issues);
 

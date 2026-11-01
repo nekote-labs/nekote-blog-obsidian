@@ -161,6 +161,14 @@ describe("collectReferences(): 拾う記法", () => {
     expect(issues()).toEqual([]);
   });
 
+  it("段落の中で閉じない<!--はコメントとみなさず、後ろの参照を拾う", () => {
+    const { run } = setup({ files: ["blog/posts/a.png", "blog/posts/b.png"] });
+
+    const body = ["本文 <!-- ![](./a.png)", "", "![](./b.png) -->"].join("\n");
+
+    expect(run(body).assetPaths).toEqual(["blog/posts/a.png", "blog/posts/b.png"]);
+  });
+
   it.each([
     { label: "2列", body: ["記号 | 画像", "--- | ---", "a ` | ![猫](./cat.png)", "b ` | 説明"] },
     { label: "見出しに|が無い1列", body: ["画像", "| --- |", "a ` ![猫](./cat.png)", "b `"] },

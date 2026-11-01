@@ -64,6 +64,8 @@ Connecting opens `dash.nekote.blog` in your browser so you can approve the devic
   (wikilinks, embeds, callouts, colored highlights) converted to standard Markdown. Frontmatter is
   sent as written.
 - Assets actually referenced by that Markdown, or by its `thumbnail` / `cover` properties.
+  Files referenced only inside code or HTML comments (`<!-- -->`) are not sent. HTML comments
+  themselves are sent as written, but the blog does not show them.
 - For each of those files: its path relative to the content root (assets: relative to the vault
   root), a SHA-256 hash, its size, and which assets and published notes it links to.
 - A random vault identifier generated on first publish, the content root path, and the revision of
@@ -76,6 +78,7 @@ Connecting opens `dash.nekote.blog` in your browser so you can approve the devic
   for publishing.
 - Your vault name, and absolute paths on your machine.
 - The body of notes that are not publish targets. A wikilink to one keeps its display text only.
+- Obsidian comments (`%% … %%`), including everything inside them. They are removed before sending.
 - `.obsidian/` and other hidden configuration.
 
 ### Telemetry
