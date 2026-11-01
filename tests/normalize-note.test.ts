@@ -116,6 +116,14 @@ describe("normalizeNote(): コメント", () => {
     expect(note.assetPaths).toEqual([]);
     expect(note.issues).toEqual([]);
   });
+
+  it("HTMLブロックの行の後ろのObsidianのコメントは、前の段落のバックティックとつながず取り除く", () => {
+    const run = setup();
+
+    const note = run(md("text `", "<!-- comment --> note", "%%private%%", "`"));
+
+    expect(note.markdown).toBe(md("text `", "<!-- comment --> note", "", "`"));
+  });
 });
 
 describe("normalizeNote(): frontmatterの画像", () => {

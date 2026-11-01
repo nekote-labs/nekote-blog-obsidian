@@ -212,4 +212,16 @@ describe("replaceOutsideCodeAndHtmlComments(): HTMLコメント", () => {
   ])("$labelはコメントを始めない", ({ body, expected }) => {
     expect(replaceWikilinks(body).result).toBe(expected);
   });
+
+  it("HTMLブロックの行を挟んだバックティック同士をインラインコードとしてつながない", () => {
+    expect(replaceWikilinks("a `\n<!-- c --> note\n[[b]] `").result).toBe(
+      "a `\n<!-- c --> note\nX `",
+    );
+  });
+
+  it("リスト項目の中のHTMLブロックは、次のリスト項目で閉じる", () => {
+    expect(replaceWikilinks("- <!-- [[a]]\n\n  [[b]]\n- [[c]]\n-->").result).toBe(
+      "- <!-- [[a]]\n\n  [[b]]\n- X\n-->",
+    );
+  });
 });

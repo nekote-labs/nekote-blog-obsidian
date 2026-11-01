@@ -8,7 +8,8 @@
 // コメントも2種類見つける。
 // - HTMLコメント（`<!--`〜`-->`）: サーバーは中を公開も参照の収集もしないので、コードと同じく
 //   書き換えない。行頭の`<!--`はCommonMarkのHTMLブロックとして`-->`を含む行まで（空行もまたぐ。
-//   閉じなければ本文（引用の中なら引用）の最後まで）。それ以外は同じ段落の中で閉じたものだけを
+//   閉じなければ本文（引用・リスト項目の中ならそれ）の最後まで）。HTMLブロックの行は段落を区切り、
+//   前後の段落とインラインコードをつながない。それ以外は同じ段落の中で閉じたものだけを
 //   コメントとし、閉じない`<!--`はただの文字として扱う
 // - Obsidianのコメント（`%%`〜`%%`）: 送る前に中身ごと取り除く（`comment.ts`）。読み方は
 //   Obsidian 1.14の閲覧表示に合わせる。行頭（引用・リストの記号の後ろ）の`%%`は、同じ行に
@@ -25,8 +26,9 @@
 // 対象外（既知の割り切り）: 4スペースのインデントコードブロックと、コメント以外のHTMLブロックの
 // 中身は書き換え対象に入る。前者は行の文脈（直前の空行・リストの内側）まで見ないと
 // 判定できず、後者はHTML内の`[[…]]`が実用上ほぼ無いため。リスト項目の中のフェンスと、
-// HTMLコメントで始まるHTMLブロックも、リストの字下げを数えないので、行頭の字下げが
-// スペース3個までのときだけ認識する（タブは不可）。
+// HTMLコメントで始まるHTMLブロックも、リストの字下げを数えずに開始を判定するので、行頭の字下げが
+// スペース3個までのときだけ認識する（タブは不可）。HTMLブロックがリスト項目と一緒に終わるのは、
+// 同じ行にリストの記号があるときだけ。
 // 引用の中の`%%`のブロックのコメントは、`>`の無い行で閉じる（Obsidianは段落の続きとして
 // 引用に含めることがある）。
 
@@ -50,6 +52,8 @@ export interface BodyLine {
   inlineCode: CodeRange[];
   /** HTMLコメントの範囲（`<!--`・`-->`を含む）。行をまたぐコメントは、この行に入る部分 */
   htmlComments: CodeRange[];
+  /** HTMLコメントで始まるHTMLブロックの行か（開始行と`-->`の行も含む） */
+  htmlBlock: boolean;
   /** Obsidianのコメントの範囲（`%%`を含む）。行をまたぐコメントは、この行に入る部分 */
   obsidianComments: CodeRange[];
 }
@@ -100,6 +104,11 @@ interface OpenComment {
   kind: CommentKind;
   /** コメントを含む引用の階層数 */
   quoteDepth: number;
+  /**
+   * リスト項目の中で始まったHTMLブロックが続くのに要る字下げ（引用記号の後ろから数える）。
+   * これより浅い行でリスト項目が終わり、ブロックも閉じる。リストの外は0
+   */
+  indent: number;
 }
 
 /** 行をまたいで続くブロック */
@@ -152,14 +161,15 @@ export function splitBodyLines(body: string): BodyLine[] {
       quoteDepth: 0,
       inlineCode: [],
       htmlComments: [],
+      htmlBlock: false,
       obsidianComments: [],
     };
     lines.push(line);
 
     if (open !== null) {
       const quote = readQuote(text, open.quoteDepth);
-      // 引用が途切れると、その中のブロックも閉じる。この行は改めて読む
-      if (quote.depth === open.quoteDepth) {
+      // 引用・リスト項目が途切れると、その中のブロックも閉じる。この行は改めて読む
+      if (quote.depth === open.quoteDepth && !leavesListItem(quote.content, open)) {
         line.quoteDepth = open.quoteDepth;
         if (open.kind === "fence") {
           line.fenced = true;
@@ -187,6 +197,12 @@ export function splitBodyLines(body: string): BodyLine[] {
   return lines;
 }
 
+/** リスト項目の中のHTMLブロックが、字下げの足りない行で項目ごと終わるか。空行では終わらない */
+function leavesListItem(content: string, open: OpenBlock): boolean {
+  if (open.kind === "fence" || open.indent === 0 || content.trim() === "") return false;
+  return content.length - content.trimStart().length < open.indent;
+}
+
 /** `from`から始まるブロックのコメント。閉じずに行が終われば、開いたままのコメントを返す */
 function startComment(line: BodyLine, from: number, quoteDepth: number): OpenComment | null {
   const rest = line.text.slice(from);
@@ -195,11 +211,16 @@ function startComment(line: BodyLine, from: number, quoteDepth: number): OpenCom
   const match = obsidian ?? html;
   if (match === null) return null;
 
-  const start = from + (match[1] as string).length;
+  const prefix = match[1] as string;
+  const start = from + prefix.length;
   // 閉じる記号は開始の記号の3文字目から探す（`<!-->`も閉じたHTMLコメント）
   return readComment(
     line,
-    { kind: obsidian === null ? "html" : "obsidian", quoteDepth },
+    {
+      kind: obsidian === null ? "html" : "obsidian",
+      quoteDepth,
+      indent: html !== null && prefix.trim() !== "" ? prefix.length : 0,
+    },
     start,
     start + 2,
   );
@@ -213,6 +234,7 @@ function readComment(
   searchFrom: number,
 ): OpenComment | null {
   const ranges = open.kind === "html" ? line.htmlComments : line.obsidianComments;
+  if (open.kind === "html") line.htmlBlock = true;
   const marker = COMMENT_CLOSE[open.kind];
   const close = line.text.indexOf(marker, searchFrom);
   if (close === -1) {
@@ -271,6 +293,14 @@ function markInlineSpans(lines: readonly BodyLine[]): void {
   };
 
   for (const entry of lines.map(inlineLineOf)) {
+    // HTMLブロックの行は段落に入らない。`-->`の後ろに残る文字は、その行の中だけで読む
+    if (entry.line.htmlBlock) {
+      pushAlone(entry);
+      previous = null;
+      tableDepth = null;
+      continue;
+    }
+
     const { quoteDepth } = entry.line;
     const content = readQuote(entry.text).content.trimStart();
     if (content.trim() === "") {
