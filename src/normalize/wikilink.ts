@@ -18,7 +18,7 @@ import {
 import { classifyAssetPath, isMarkdownPath, isTransferableAsset } from "./assets";
 import type { NormalizeContext } from "./context";
 import { headingAnchorId } from "./heading-anchor";
-import { replaceOutsideCode } from "./segments";
+import { replaceOutsideCodeAndHtmlComments } from "./segments";
 import { escapeBracketLabel, escapeInlineText } from "./text";
 
 /** 中身は最初の`]]`まで（Obsidianの読み方に合わせる） */
@@ -48,7 +48,7 @@ export function normalizeWikilinks(
   context: NormalizeContext,
   issues: IssueCollector,
 ): string {
-  return replaceOutsideCode(body, (text) =>
+  return replaceOutsideCodeAndHtmlComments(body, (text) =>
     text.replace(WIKILINK_PATTERN, (_match: string, bang: string, inner: string) =>
       convertWikilink(parseWikilink(inner), bang === "!", context, issues),
     ),

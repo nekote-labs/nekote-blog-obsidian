@@ -6,6 +6,8 @@
 //
 // 入力はObsidian記法の正規化後で`[[…]]`は残っていないため、見るのは標準Markdownの
 // インラインリンク・参照定義、限定HTMLの`src`・`href`、leaf directiveの`url`。
+// コードとHTMLコメントの中はサーバーも集めないので見ない。段落の中で閉じない`<!--`は、
+// サーバーもコメントとして読まないので、後ろを普通の本文として拾う。
 //
 // Markdownを正規表現で近似的に読むので、次は取りこぼす: 2段以上入れ子になった括弧を含む
 // dest、バックスラッシュエスケープ、4スペースのインデントコードブロック（`segments.ts`と
@@ -22,7 +24,7 @@ import {
 } from "../vault/paths";
 import { classifyAssetPath, isMarkdownPath, isTransferableAsset } from "./assets";
 import type { NormalizeContext } from "./context";
-import { replaceInsideCode } from "./segments";
+import { replaceInsideCodeAndHtmlComments } from "./segments";
 import { classifyReferenceUrl, decodeReferencePath } from "./url";
 
 export interface CollectedReferences {
@@ -70,8 +72,8 @@ export function collectReferences(
   const assetPaths = new Set<string>();
   const linkedArticlePaths = new Set<string>();
 
-  // フェンスとインラインコードを潰した本文で探す。行をまたぐ `](\n dest)` も拾う
-  for (const found of findDestinations(maskCode(body))) {
+  // コードとHTMLコメントを潰した本文で探す。行をまたぐ `](\n dest)` も拾う
+  for (const found of findDestinations(maskCodeAndHtmlComments(body))) {
     if (seen.has(found.text)) continue;
     seen.add(found.text);
 
@@ -94,16 +96,16 @@ export function collectReferences(
   return { assetPaths: [...assetPaths], linkedArticlePaths: [...linkedArticlePaths] };
 }
 
-/** フェンスとインラインコードを同じ長さの空白へ潰す（出現位置を保つ） */
-function maskCode(body: string): string {
-  return replaceInsideCode(body, (code) => " ".repeat(code.length));
+/** コード（フェンス・インラインコード）とHTMLコメントを同じ長さの空白へ潰す（出現位置を保つ） */
+function maskCodeAndHtmlComments(body: string): string {
+  return replaceInsideCodeAndHtmlComments(body, (code) => " ".repeat(code.length));
 }
 
 function quotedOrBare(match: RegExpMatchArray): string {
   return match[1] ?? match[2] ?? match[3] ?? "";
 }
 
-/** コードを潰した本文に含まれるdestを出現順に */
+/** コードとHTMLコメントを潰した本文に含まれるdestを出現順に */
 function findDestinations(masked: string): FoundDestination[] {
   const found: FoundDestination[] = [];
 

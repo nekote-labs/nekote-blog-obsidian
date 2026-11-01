@@ -161,6 +161,27 @@ describe("collectReferences(): 拾う記法", () => {
     expect(issues()).toEqual([]);
   });
 
+  it("段落の中で閉じない<!--はコメントとみなさず、後ろの参照を拾う", () => {
+    const { run } = setup({ files: ["blog/posts/a.png", "blog/posts/b.png"] });
+
+    const body = ["本文 <!-- ![](./a.png)", "", "![](./b.png) -->"].join("\n");
+
+    expect(run(body).assetPaths).toEqual(["blog/posts/a.png", "blog/posts/b.png"]);
+  });
+
+  it.each([
+    { label: "次のリスト項目", body: ["- <!-- hidden", "- ![](cat.png)", "-->"] },
+    {
+      label: "タブで字下げした継続行では閉じない",
+      body: ["- <!-- hidden", "\t![](missing.png)", "\t-->", "- ![](cat.png)"],
+    },
+  ])("リスト項目の中のHTMLコメントは項目の終わりで閉じる（$label）", ({ body }) => {
+    const { run, issues } = setup({ files: ["blog/posts/cat.png"] });
+
+    expect(run(body.join("\n")).assetPaths).toEqual(["blog/posts/cat.png"]);
+    expect(issues()).toEqual([]);
+  });
+
   it.each([
     { label: "2列", body: ["記号 | 画像", "--- | ---", "a ` | ![猫](./cat.png)", "b ` | 説明"] },
     { label: "見出しに|が無い1列", body: ["画像", "| --- |", "a ` ![猫](./cat.png)", "b `"] },

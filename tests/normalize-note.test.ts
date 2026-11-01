@@ -95,6 +95,37 @@ describe("normalizeNote(): frontmatterと本文", () => {
   });
 });
 
+describe("normalizeNote(): コメント", () => {
+  it("HTMLコメントは残し、中の参照は変換も収集もせず、指摘も出さない", () => {
+    const run = setup({ files: ["blog/posts/hidden.png"] });
+    const source = "<!-- ![[missing-image.png]] ![](hidden.png) -->";
+
+    const note = run(source);
+
+    expect(note.markdown).toBe(source);
+    expect(note.assetPaths).toEqual([]);
+    expect(note.issues).toEqual([]);
+  });
+
+  it("Obsidianのコメントは中身ごと取り除き、中の参照も送らない", () => {
+    const run = setup({ files: ["blog/posts/hidden.png"] });
+
+    const note = run(md("公開%%非公開 ![](hidden.png)%%", "%%", "![[missing-image.png]]", "%%"));
+
+    expect(note.markdown).toBe(md("公開", "", "", ""));
+    expect(note.assetPaths).toEqual([]);
+    expect(note.issues).toEqual([]);
+  });
+
+  it("HTMLブロックの行の後ろのObsidianのコメントは、前の段落のバックティックとつながず取り除く", () => {
+    const run = setup();
+
+    const note = run(md("text `", "<!-- comment --> note", "%%private%%", "`"));
+
+    expect(note.markdown).toBe(md("text `", "<!-- comment --> note", "", "`"));
+  });
+});
+
 describe("normalizeNote(): frontmatterの画像", () => {
   it("thumbnailの相対pathを参照アセットにする", () => {
     const run = setup({ files: ["blog/posts/img/cat.png"] });
