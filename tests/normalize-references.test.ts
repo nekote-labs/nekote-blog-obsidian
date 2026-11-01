@@ -169,12 +169,17 @@ describe("collectReferences(): 拾う記法", () => {
     expect(run(body).assetPaths).toEqual(["blog/posts/a.png", "blog/posts/b.png"]);
   });
 
-  it("リスト項目の中のHTMLコメントは次のリスト項目で閉じ、そこからの参照を拾う", () => {
-    const { run } = setup({ files: ["blog/posts/cat.png"] });
+  it.each([
+    { label: "次のリスト項目", body: ["- <!-- hidden", "- ![](cat.png)", "-->"] },
+    {
+      label: "タブで字下げした継続行では閉じない",
+      body: ["- <!-- hidden", "\t![](missing.png)", "\t-->", "- ![](cat.png)"],
+    },
+  ])("リスト項目の中のHTMLコメントは項目の終わりで閉じる（$label）", ({ body }) => {
+    const { run, issues } = setup({ files: ["blog/posts/cat.png"] });
 
-    const body = ["- <!-- hidden", "- ![](cat.png)", "-->"].join("\n");
-
-    expect(run(body).assetPaths).toEqual(["blog/posts/cat.png"]);
+    expect(run(body.join("\n")).assetPaths).toEqual(["blog/posts/cat.png"]);
+    expect(issues()).toEqual([]);
   });
 
   it.each([

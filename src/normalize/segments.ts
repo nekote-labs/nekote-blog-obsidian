@@ -200,7 +200,14 @@ export function splitBodyLines(body: string): BodyLine[] {
 /** リスト項目の中のHTMLブロックが、字下げの足りない行で項目ごと終わるか。空行では終わらない */
 function leavesListItem(content: string, open: OpenBlock): boolean {
   if (open.kind === "fence" || open.indent === 0 || content.trim() === "") return false;
-  return content.length - content.trimStart().length < open.indent;
+  return columnsOf(content.slice(0, content.length - content.trimStart().length)) < open.indent;
+}
+
+/** 行頭からの文字列が占める列数。タブは4の倍数の列まで進む（CommonMark） */
+function columnsOf(text: string): number {
+  let columns = 0;
+  for (const char of text) columns = char === "\t" ? columns - (columns % 4) + 4 : columns + 1;
+  return columns;
 }
 
 /** `from`から始まるブロックのコメント。閉じずに行が終われば、開いたままのコメントを返す */
@@ -219,7 +226,7 @@ function startComment(line: BodyLine, from: number, quoteDepth: number): OpenCom
     {
       kind: obsidian === null ? "html" : "obsidian",
       quoteDepth,
-      indent: html !== null && prefix.trim() !== "" ? prefix.length : 0,
+      indent: html !== null && prefix.trim() !== "" ? columnsOf(prefix) : 0,
     },
     start,
     start + 2,
