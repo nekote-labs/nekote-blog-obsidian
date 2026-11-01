@@ -14,6 +14,7 @@
 | 項目 | 端末 | 結果 |
 | --- | --- | --- |
 | `crypto.subtle.digest("SHA-256")` のメモリ挙動 | iPhone実機（Obsidian 1.13.7 / iOS 18.7） | 20MiB 1件が14ms。20MiB×100件の逐次hash化も完走。純JSのフォールバックは不要 |
+| `%%` をコメントと読む範囲（`src/normalize/segments.ts`） | macOS（Obsidian 1.14.5 / macOS 26.7.1） | 行内・行をまたぐもの・閉じた `%%` の後ろの文・閉じない行頭の `%%`・行の途中で閉じない `%%`・引用とリストの中・コードの中とエスケープで、閲覧表示で隠れる範囲と公開ページで消える範囲が一致した |
 
 ## 未確定（このPRの実装が依存している）
 
@@ -25,7 +26,7 @@
 | 4 | モバイルOSによる中断 | iOS・Android実機 | 認可のpoll中・upload中にアプリをバックグラウンドへ送り、復帰後に続きから進めることを確認する | バックグラウンド完走は保証しない。端末ローカルの `pendingPushId` から再開する（`src/sync/publish.ts` の `reportResumedPush()`）|
 | 5 | Vault APIの走査コスト | macOS・iOS・Android | 10,000ノートのvaultで `getFiles()` と `TFile.stat` だけの件数集計、続いて本文の逐次読み取りの所要時間を測る | 本文を読む前のしきい値（Markdown 500件／50MiB）で止められる前提。`src/sync/scan.ts` の `scanVault()` が該当 |
 | 6 | iCloud未取得ファイル（placeholder）の挙動 | iOS・macOS（iCloud Driveにvaultを置く） | ダウンロード前のファイルを作り、`read()` / `readBinary()` / `TFile.stat` が何を返すか（例外か・0バイトか・待つか）を確認する | 暫定で「例外」と「`stat` のsizeが0でないのに中身が空」の2つを読み取り失敗とみなし、走査全体を止めている（`src/sync/scan.ts` の `readText()` / `readAssetBytes()`）。挙動が分かったら判定を見直す |
-| 7 | 実vaultでの正規化結果 | いずれか1台 | 実際のvaultをコンテンツルートへ置き、wikilink・embed・Callout・コメント（`%%`）の正規化結果と警告件数を目視する | 変換規則は `nekote-blog` の `docs/spec/obsidian.md`「Obsidian記法の正規化」。Calloutの既定タイトルはObsidian公式ヘルプの "type identifier in title case" をそのまま実装しており、実機の表示と突き合わせていない。`%%` をコメントと読む範囲はObsidian 1.14.5本体の閲覧表示のコードに合わせたもので、閲覧表示で隠れる範囲と送信後に消える範囲を実機で突き合わせていない（`src/normalize/segments.ts`） |
+| 7 | 実vaultでの正規化結果 | いずれか1台 | 実際のvaultをコンテンツルートへ置き、wikilink・embed・Calloutの正規化結果と警告件数を目視する | 変換規則は `nekote-blog` の `docs/spec/obsidian.md`「Obsidian記法の正規化」。Calloutの既定タイトルはObsidian公式ヘルプの "type identifier in title case" をそのまま実装しており、実機の表示と突き合わせていない |
 | 8 | リボン・ノートヘッダー・メニューのアイコン表示と、モバイルでの表示位置 | macOS・iOS・Android | 公開対象ノートを開き、ヘッダーの反映ボタンの表示・非表示（公開対象外ノートで消えること）とリボン・ヘッダー・右クリックの各メニュー（未接続では反映項目がラベルに置き換わり、画像選択とFront Matter挿入は残ること）を目視する | アイコン名 `cat`・`upload`・`settings`・`image` が同梱lucideに存在する前提。無くても機能は動くがアイコンが空になる（`src/main.ts`） |
 | 9 | `<input type="file">` での画像取り込み | iOS・Android実機 | サムネイル選択モーダルの「画像ファイルを取り込む…」で写真を選び、取り込み先フォルダ（既定はコンテンツルート直下の `assets`）へ保存されfrontmatterへ相対pathが書かれることを確認する | モバイルでもファイル/写真ピッカーが開く前提。選択の取り消しは `cancel` イベントが来ない環境では何も起きないだけ（`src/ui/frontmatter-image-modal.ts` の `pickLocalImage()`） |
 | 10 | 内部API `app.setting` での設定画面オープン | いずれか1台 | リボンメニューの「設定を開く」でNekote Blogの設定タブが開くことを確認する | 公開APIが無く非公開APIに頼っている。取れない形ならNoticeの案内へ倒す（`src/main.ts` の `openSettings()`） |
